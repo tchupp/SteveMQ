@@ -2,8 +2,7 @@ defmodule Broker do
   require Logger
 
   def accept(port) do
-    {:ok, socket} =
-      :gen_tcp.listen(port, [:binary, packet: :line, active: false, reuseaddr: true])
+    {:ok, socket} = :gen_tcp.listen(port, [:binary, active: false, reuseaddr: true])
 
     Logger.info("Accepting connections on port #{port}")
     loop_acceptor(socket)
@@ -21,8 +20,8 @@ defmodule Broker do
   defp serve(socket) do
     msg = read_line(socket)
 
-    Logger.info("Received: stuff")
-    Logger.info("Received: #{msg}")
+    packet = elem(msg, 1)
+    Logger.info("Received: #{elem(msg, 0)}, #{packet}")
 
     write_line(socket, msg)
     serve(socket)
@@ -32,8 +31,11 @@ defmodule Broker do
     :gen_tcp.recv(socket, 0)
   end
 
-  defp write_line(socket, {:ok, text}) do
-    :gen_tcp.send(socket, text)
+  defp write_line(socket, {:ok, _}) do
+    connack = <<32, 2, 0, 0>>
+    Logger.info("Sending: #{connack}")
+
+    :gen_tcp.send(socket, connack)
   end
 
   defp write_line(socket, {:error, error}) do
