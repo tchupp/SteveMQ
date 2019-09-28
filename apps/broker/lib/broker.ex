@@ -18,12 +18,11 @@ defmodule Broker do
   end
 
   defp serve(socket) do
-    msg = read_line(socket)
+    {:ok, raw_packet} = read_line(socket)
 
-    packet = elem(msg, 1)
-    Logger.info("Received: #{elem(msg, 0)}, #{packet}")
+    parsed_msg = Broker.Packet.parse(raw_packet)
 
-    write_line(socket, msg)
+    write_line(socket, parsed_msg)
     serve(socket)
   end
 
@@ -31,15 +30,26 @@ defmodule Broker do
     :gen_tcp.recv(socket, 0)
   end
 
-  defp write_line(socket, {:ok, _}) do
-    connack = <<32, 2, 0, 0>>
-    Logger.info("Sending: #{connack}")
+  defp write_line(socket, {:connect, data}) do
+    Logger.info("received CONNECT from client id: #{data[:client_id]}")
 
+    connack = <<32, 2, 0, 0>>
     :gen_tcp.send(socket, connack)
   end
 
+  defp write_line(socket, {:not_implemented_connect, msg}) do
+    Logger.info("received CONNECT with unimplemented options: #{msg}")
+
+    #    haven't figured out how to send the right error code, but sending any causes the client to properly disconnect
+    impl_specific_error_connack = <<32, 2, 0, 131>>
+    :gen_tcp.send(socket, impl_specific_error_connack)
+  end
+
   defp write_line(socket, {:error, error}) do
-    :gen_tcp.send(socket, "ERROR\r\n")
+    Logger.info("error processing CONNECT: #{error}")
+    unknown_error_connack = <<32, 2, 0, 131>>
+
+    :gen_tcp.send(socket, unknown_error_connack)
     exit(error)
   end
 end
