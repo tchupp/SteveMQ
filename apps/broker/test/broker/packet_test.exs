@@ -14,6 +14,7 @@ defmodule Broker.PacketTest do
     assert data[:client_id] == "hello world"
     assert data[:connect_flags] == 2
     assert data[:keep_alive] == 60
+    assert data[:protocol_level] == 4
   end
 
   test "returns error when cant parse CONNECT" do
