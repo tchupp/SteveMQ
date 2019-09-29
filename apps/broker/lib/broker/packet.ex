@@ -22,17 +22,19 @@ defmodule Broker.Packet do
       <<_::9*8, connect_flags, _::binary>> when connect_flags != 2 and connect_flags != 1 ->
         {:not_implemented_connect, "only currently handling client id in CONNECT payload"}
 
-      <<_, remaining_length, 0, 4, "M", "Q", "T", "T", protocol_level, connect_flags,
-        keep_alive::16, client_id_length::16, client_id::binary>> ->
+      <<_, _, 0, 4, "M", "Q", "T", "T", protocol_level, connect_flags,
+        keep_alive::16, client_id_length::16, client_id::binary>> when client_id_length == byte_size(client_id)->
         {:connect,
          %{
            :client_id => client_id,
            :connect_flags => connect_flags,
-           :keep_alive => keep_alive
+           :keep_alive => keep_alive,
+           :protocol_level => protocol_level
          }}
 
       _ ->
         {:error, "could not parse CONNECT"}
     end
   end
+
 end
