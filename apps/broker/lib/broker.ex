@@ -18,16 +18,21 @@ defmodule Broker do
   end
 
   defp serve(socket) do
-    {:ok, raw_packet} = read_line(socket)
+    msg =
+      with {:ok, raw_packet} <- read_line(socket),
+           do: Broker.Packet.parse(raw_packet)
 
-    parsed_msg = Broker.Packet.parse(raw_packet)
-
-    write_line(socket, parsed_msg)
+    write_line(socket, msg)
     serve(socket)
   end
 
   defp read_line(socket) do
     :gen_tcp.recv(socket, 0)
+  end
+
+  defp write_line(_, {:error, :closed}) do
+    Logger.info("closing connection")
+    exit(:shutdown)
   end
 
   defp write_line(socket, {:connect, data}) do
@@ -45,7 +50,7 @@ defmodule Broker do
     :gen_tcp.send(socket, impl_specific_error_connack)
   end
 
-  defp write_line(socket, {:subscribe, data}) do
+  defp write_line(socket, {:subscribe, _}) do
     Logger.info("received SUBSCRIBE")
 
     suback = <<144, 1, 0>>
