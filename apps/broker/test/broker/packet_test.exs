@@ -7,7 +7,10 @@ defmodule Broker.PacketTest do
   end
 
   test "parses CONNECT" do
-    connect = <<16, 23, 0, 4, ?M, ?Q, ?T, ?T, 4, 2, 0, 60, 0, 11, ?h, ?e, ?l, ?l, ?o, 32, ?w, ?o, ?r, ?l, ?d>>
+    connect =
+      <<16, 23, 0, 4, ?M, ?Q, ?T, ?T, 4, 2, 0, 60, 0, 11, ?h, ?e, ?l, ?l, ?o, 32, ?w, ?o, ?r, ?l,
+        ?d>>
+
     {result, data} = Broker.Packet.parse(connect)
 
     assert result == :connect
@@ -18,10 +21,19 @@ defmodule Broker.PacketTest do
   end
 
   test "returns error when cant parse CONNECT" do
-    connect_with_bad_protocol = <<16, 23, 0, 4, ?H, ?T, ?T, ?P, 4, 2, 0, 60, 0, 11, ?h, ?e, ?l, ?l, ?o, 32, ?w, ?o, ?r, ?l, ?d>>
+    connect_with_bad_protocol =
+      <<16, 23, 0, 4, ?H, ?T, ?T, ?P, 4, 2, 0, 60, 0, 11, ?h, ?e, ?l, ?l, ?o, 32, ?w, ?o, ?r, ?l,
+        ?d>>
 
     {result, msg} = Broker.Packet.parse(connect_with_bad_protocol)
     assert result == :error
     assert msg == "could not parse CONNECT"
+  end
+
+  test "parses SUBSCRIBE" do
+    subscribe = <<130, 2, 0, 0>>
+    {result, _} = Broker.Packet.parse(subscribe)
+
+    assert result == :subscribe
   end
 end
