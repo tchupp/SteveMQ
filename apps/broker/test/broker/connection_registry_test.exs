@@ -19,4 +19,13 @@ defmodule Broker.ConnectionRegistryTest do
     assert Broker.ConnectionRegistry.remove(registry, "mqttClientOfSomeSort") == self()
     assert Broker.ConnectionRegistry.get_pid(registry, "mqttClientOfSomeSort") == nil
   end
+
+  test "only saves new pid when another is registered with same client id", %{registry: registry} do
+    task = Task.async(fn -> Broker.ConnectionRegistry.register(registry, "clientIdThatReconnects", self()) end)
+    Task.await(task)
+
+    Broker.ConnectionRegistry.register(registry, "clientIdThatReconnects", self())
+
+    assert Broker.ConnectionRegistry.get_pid(registry, "clientIdThatReconnects") == self()
+  end
 end
