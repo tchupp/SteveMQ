@@ -17,7 +17,7 @@ defmodule Broker.Packet do
       <<_, remaining_length, rest::binary>> when byte_size(rest) != remaining_length ->
         {:error, "remaining length is wrong"}
 
-      <<_, _, protocol_length::16, protocol::64, _::binary>> when protocol_length != 4 ->
+      <<_, _, protocol_length::16, _::binary>> when protocol_length != 4 ->
         {:not_implemented_connect, "protocol length bad: only supporting MQTT (size 4)"}
 
       <<_::9*8, connect_flags, _::binary>> when connect_flags != 2 and connect_flags != 1 ->
@@ -39,7 +39,7 @@ defmodule Broker.Packet do
     end
   end
 
-  defp parse_subscribe(msg) do
+  defp parse_subscribe(_msg) do
     {:subscribe, "that's a SUBSCRIBE"}
   end
 end
