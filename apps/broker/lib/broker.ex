@@ -53,14 +53,14 @@ defmodule Broker do
   defp write_line(socket, {:subscribe, _}) do
     Logger.info("received SUBSCRIBE")
 
-    suback = <<144, 1, 0>>
+    suback = <<144, 4, 3, 31, ?h, ?i>>
     :gen_tcp.send(socket, suback)
   end
 
   defp write_line(socket, {:error, error}) do
     Logger.info("error processing CONNECT: #{error}")
-    unknown_error_connack = <<32, 2, 0, 131>>
 
+    unknown_error_connack = <<32, 2, 0, 131>>
     :gen_tcp.send(socket, unknown_error_connack)
     exit(error)
   end
