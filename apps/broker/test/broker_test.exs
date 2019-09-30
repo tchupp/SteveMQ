@@ -12,12 +12,15 @@ defmodule BrokerTest do
     %{socket: socket}
   end
 
-  test "CONNECT returns a CONNACK", %{socket: socket} do
+  test "SUBSCRIBE flow", %{socket: socket} do
     connect =
       <<16, 23, 0, 4, ?M, ?Q, ?T, ?T, ?4, 2, 0, 60, 0, 11, ?h, ?e, ?l, ?l, ?o, 32, ?w, ?o, ?r, ?l,
         ?d>>
 
+    subscribe = <<130, 2, 0, 0>>
+
     assert send_and_recv(socket, connect) == <<32, 2, 0, 0>>
+    <<144, _::binary>> = send_and_recv(socket, subscribe)
   end
 
   test "CONNACKs with error code when bad CONNECT is sent", %{socket: socket} do
