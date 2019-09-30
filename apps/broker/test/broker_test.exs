@@ -13,7 +13,9 @@ defmodule BrokerTest do
   end
 
   test "CONNECT returns a CONNACK", %{socket: socket} do
-    connect = <<16, 23, 0, 4, ?M, ?Q, ?T, ?T, ?4, 2, 0, 60, 0, 11, ?h, ?e, ?l, ?l, ?o, 32, ?w, ?o, ?r, ?l, ?d>>
+    connect =
+      <<16, 23, 0, 4, ?M, ?Q, ?T, ?T, ?4, 2, 0, 60, 0, 11, ?h, ?e, ?l, ?l, ?o, 32, ?w, ?o, ?r, ?l,
+        ?d>>
 
     assert send_and_recv(socket, connect) == <<32, 2, 0, 0>>
   end

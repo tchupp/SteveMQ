@@ -4,6 +4,7 @@ defmodule Broker.Packet do
   def parse(msg) do
     case msg do
       <<1::4, _::4, _::binary>> -> parse_connect(msg)
+      <<8::4, 2::4, _::binary>> -> parse_subscribe(msg)
       _ -> {:error, "could not determine packet type"}
     end
   end
@@ -22,8 +23,9 @@ defmodule Broker.Packet do
       <<_::9*8, connect_flags, _::binary>> when connect_flags != 2 and connect_flags != 1 ->
         {:not_implemented_connect, "only currently handling client id in CONNECT payload"}
 
-      <<_, _, 0, 4, "M", "Q", "T", "T", protocol_level, connect_flags,
-        keep_alive::16, client_id_length::16, client_id::binary>> when client_id_length == byte_size(client_id)->
+      <<_, _, 0, 4, "M", "Q", "T", "T", protocol_level, connect_flags, keep_alive::16,
+        client_id_length::16, client_id::binary>>
+      when client_id_length == byte_size(client_id) ->
         {:connect,
          %{
            :client_id => client_id,
@@ -37,4 +39,7 @@ defmodule Broker.Packet do
     end
   end
 
+  defp parse_subscribe(msg) do
+    {:subscribe, "that's a SUBSCRIBE"}
+  end
 end
