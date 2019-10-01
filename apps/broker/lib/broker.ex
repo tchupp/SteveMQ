@@ -12,7 +12,7 @@ defmodule Broker do
     {:ok, client} = :gen_tcp.accept(socket)
 
     {:ok, pid} =
-      DynamicSupervisor.start_child(Broker.ConnectionSupervisor, {Broker.Connection, client})
+      DynamicSupervisor.start_child(Broker.ConnectionsSupervisor, {Broker.Connection, client})
 
     :ok = :gen_tcp.controlling_process(client, pid)
 

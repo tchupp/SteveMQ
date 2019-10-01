@@ -1,4 +1,4 @@
-defmodule Broker.ConnectionRegistry do
+defmodule Broker.Connection.Registry do
   use Agent
 
   def start_link(_opts) do
@@ -16,5 +16,4 @@ defmodule Broker.ConnectionRegistry do
   def remove(registry, client_id) do
     Agent.get_and_update(registry, &Map.pop(&1, client_id))
   end
-
 end
