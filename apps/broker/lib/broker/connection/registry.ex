@@ -41,5 +41,4 @@ defmodule Broker.Connection.Registry do
     {_, new_map} = Map.pop(clients_to_pids, client_id)
     {:reply, :ok, {new_map, monitor_refs}}
   end
-
 end
