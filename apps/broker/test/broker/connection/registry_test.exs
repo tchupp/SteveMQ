@@ -1,9 +1,9 @@
 defmodule Broker.Connection.RegistryTest do
   use ExUnit.Case, async: true
 
-  setup do
-    registry = start_supervised!(Broker.Connection.Registry)
-    %{registry: registry}
+  setup context do
+    _ = start_supervised!({Broker.Connection.Registry, name: context.test})
+    %{registry: context.test}
   end
 
   test "stores pids per client id", %{registry: registry} do
@@ -16,7 +16,7 @@ defmodule Broker.Connection.RegistryTest do
   test "deletes values by key", %{registry: registry} do
     Broker.Connection.Registry.register(registry, "mqttClientOfSomeSort", self())
 
-    assert Broker.Connection.Registry.remove(registry, "mqttClientOfSomeSort") == self()
+    assert Broker.Connection.Registry.remove(registry, "mqttClientOfSomeSort") == :ok
     assert Broker.Connection.Registry.get_pid(registry, "mqttClientOfSomeSort") == nil
   end
 
