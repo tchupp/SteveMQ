@@ -36,4 +36,13 @@ defmodule Broker.PacketTest do
 
     assert result == :subscribe
   end
+
+  test "parses PUBLISH" do
+    publish = <<3::4, 0::4, 14, 0, 5, ?t, ?o, ?p, ?i, ?c, ?m, ?e, ?s, ?s, ?a, ?g, ?e>>
+
+    {_, packet} = Broker.Packet.parse(publish)
+
+    assert packet[:topic] == "topic"
+    assert packet[:message] == "message"
+  end
 end

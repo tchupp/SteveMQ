@@ -4,6 +4,7 @@ defmodule Broker.Packet do
   def parse(msg) do
     case msg do
       <<1::4, _::4, _::binary>> -> parse_connect(msg)
+      <<3::4, _::4, _::binary>> -> parse_publish(msg)
       <<8::4, 2::4, _::binary>> -> parse_subscribe(msg)
       _ -> {:error, "could not determine packet type"}
     end
@@ -41,5 +42,20 @@ defmodule Broker.Packet do
 
   defp parse_subscribe(_msg) do
     {:subscribe, "that's a SUBSCRIBE"}
+  end
+
+  defp parse_publish(msg) do
+    <<_, rest::binary>> = msg
+
+    <<remaining_length, rest::binary>> = rest
+    <<topic_length::16, rest::binary>> = rest
+    <<topic::binary-size(topic_length), rest::binary>> = rest
+    # skipping tons of other possible things to parse
+
+    {:publish,
+     %{
+       :topic => topic,
+       :message => rest
+     }}
   end
 end
