@@ -14,19 +14,20 @@ defmodule BrokerTest do
 
   test "SUBSCRIBE flow", %{socket: socket} do
     connect =
-      <<16, 23, 0, 4, ?M, ?Q, ?T, ?T, ?4, 2, 0, 60, 0, 11, ?h, ?e, ?l, ?l, ?o, 32, ?w, ?o, ?r, ?l,
-        ?d>>
+      <<16, 24, 0, 4, ?M, ?Q, ?T, ?T, 5, 2, 0, 60, 0, 0, 11, ?h, ?e, ?l, ?l, ?o, 32, ?w, ?o, ?r,
+        ?l, ?d>>
 
     subscribe = <<130, 14, 0, 0, 0, 9, ?t, ?e, ?s, ?t, ?T, ?o, ?p, ?i, ?c, 0>>
 
-    assert send_and_recv(socket, connect) == <<32, 2, 0, 0>>
+    assert send_and_recv(socket, connect) == <<32, 3, 0, 0, 0>>
     <<144, _::binary>> = send_and_recv(socket, subscribe)
   end
 
   test "CONNACKs with error code when bad CONNECT is sent", %{socket: socket} do
-    wrong_remaining_length = <<16, 0, 0, 0>>
+    bad_header_flags = 4
+    connect = <<1::4, bad_header_flags::4, 0, 0, 0>>
 
-    <<32, 2, 0, reason_code>> = send_and_recv(socket, wrong_remaining_length)
+    <<32, 2, 0, reason_code>> = send_and_recv(socket, connect)
     assert reason_code != 0
   end
 
