@@ -50,9 +50,13 @@ defmodule Broker.Connection do
   defp handle(socket, {:connect, data}) do
     Broker.Connection.Registry.register(Broker.Connection.Registry, data[:client_id], self())
 
-    Logger.info("received CONNECT from client id: #{data[:client_id]}, protocol level #{data[:protocol_level]}. Sending CONNACK")
+    Logger.info(
+      "received CONNECT from client id: #{data[:client_id]}, protocol level #{
+        data[:protocol_level]
+      }. Sending CONNACK"
+    )
 
-    connack = <<32, 2, 0, 0>>
+    connack = <<32, 3, 0, 0, 0>>
     :gen_tcp.send(socket, connack)
   end
 
