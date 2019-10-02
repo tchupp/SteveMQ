@@ -38,6 +38,7 @@ defmodule Broker.Connection.RegistryTest do
       Task.async(fn ->
         Broker.Connection.Registry.register(registry, "taskClientId", self())
       end)
+
     Task.await(task)
 
     assert Broker.Connection.Registry.get_pid(registry, "taskClientId") == nil
