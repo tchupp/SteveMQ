@@ -33,12 +33,20 @@ defmodule Broker.Connection.Registry do
 
   @impl true
   def handle_call({:register, client_id, pid}, _from, {client_id_map, monitor_refs}) do
-    {:reply, :ok, {Map.put(client_id_map, client_id, pid), monitor_refs}}
+    monitor_ref = Process.monitor(pid)
+    {:reply, :ok, {Map.put(client_id_map, client_id, pid), Map.put(monitor_refs, monitor_ref, client_id)}}
   end
 
   @impl true
   def handle_call({:remove, client_id}, _from, {clients_to_pids, monitor_refs}) do
-    {_, new_map} = Map.pop(clients_to_pids, client_id)
-    {:reply, :ok, {new_map, monitor_refs}}
+    {_removed_pid, new_clients_map} = Map.pop(clients_to_pids, client_id)
+    {:reply, :ok, {new_clients_map, monitor_refs}}
+  end
+
+  @impl true
+  def handle_info({:DOWN, ref, :process, _pid, _reason}, {clients_to_pids, monitor_refs}) do
+    {pid, new_refs} = Map.pop(monitor_refs, ref)
+    {_, new_clients} = Map.pop(clients_to_pids, pid)
+    {:noreply, {new_clients, new_refs}}
   end
 end

@@ -32,4 +32,14 @@ defmodule Broker.Connection.RegistryTest do
 
     assert Broker.Connection.Registry.get_pid(registry, "clientIdThatReconnects") == self()
   end
+
+  test "removes client from registry if client process goes down", %{registry: registry} do
+    task =
+      Task.async(fn ->
+        Broker.Connection.Registry.register(registry, "taskClientId", self())
+      end)
+    Task.await(task)
+
+    assert Broker.Connection.Registry.get_pid(registry, "taskClientId") == nil
+  end
 end

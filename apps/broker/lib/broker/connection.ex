@@ -48,6 +48,8 @@ defmodule Broker.Connection do
   end
 
   defp handle(socket, {:connect, data}) do
+    Broker.Connection.Registry.register(Broker.Connection.Registry, data[:client_id], self())
+
     Logger.info("received CONNECT from client id: #{data[:client_id]}, sending CONNACK")
 
     connack = <<32, 2, 0, 0>>
