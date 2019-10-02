@@ -19,6 +19,14 @@ defmodule Broker.SubscriptionRegistry do
   end
 
   def remove_subscription(registry, client_id, topic) do
+    Agent.update(registry, fn state ->
+      clients = Map.get(state, topic)
+
+      case clients do
+        nil -> state
+        some -> Map.put(state, topic, some -- [client_id])
+      end
+    end)
   end
 
   def get_subscribers(registry, topic) do
