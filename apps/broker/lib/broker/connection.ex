@@ -71,6 +71,13 @@ defmodule Broker.Connection do
     :gen_tcp.send(socket, suback)
   end
 
+  defp handle(socket, {:publish, _}) do
+    Logger.info("received PUBLISH... sending nonsense")
+
+    suback = <<144, 4, 3, 31, ?h, ?i>>
+    :gen_tcp.send(socket, suback)
+  end
+
   defp handle(socket, {:error, error}) do
     Logger.info("error reading tcp socket: #{error}")
 
