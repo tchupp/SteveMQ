@@ -31,10 +31,11 @@ defmodule Broker.PacketTest do
   end
 
   test "parses SUBSCRIBE" do
-    subscribe = <<130, 2, 0, 0>>
-    {result, _} = Broker.Packet.parse(subscribe)
+    subscribe = <<130, 14, 0, 0, 0, 9, ?t, ?e, ?s, ?t, ?T, ?o, ?p, ?i, ?c, 0>>
+    {result, packet} = Broker.Packet.parse(subscribe)
 
     assert result == :subscribe
+    assert packet[:topic] == "testTopic"
   end
 
   test "parses PUBLISH" do
