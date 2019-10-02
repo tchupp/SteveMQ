@@ -2,9 +2,10 @@ defmodule Broker.SubscriptionRegistry do
   use Agent
   require Logger
 
-  def start_link(_opts) do
+  def start_link(opts) do
     #    map of topic -> [client_ids]
-    Agent.start_link(fn -> %{} end)
+    name = Keyword.fetch!(opts, :name)
+    Agent.start_link(fn -> %{} end, name: name)
   end
 
   def add_subscription(registry, client_id, topic) do

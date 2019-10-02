@@ -1,9 +1,9 @@
 defmodule Broker.SubscriptionRegistryTest do
   use ExUnit.Case, async: true
 
-  setup do
-    registry = start_supervised!(Broker.SubscriptionRegistry)
-    %{registry: registry}
+  setup context do
+    _ = start_supervised!({Broker.SubscriptionRegistry, name: context.test})
+    %{registry: context.test}
   end
 
   test "keeps track of each client subscribed to a topic", %{registry: registry} do
