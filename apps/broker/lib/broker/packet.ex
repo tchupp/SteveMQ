@@ -37,15 +37,16 @@ defmodule Broker.Packet do
   defp parse_subscribe(msg) do
     <<_, rest::binary>> = msg
     <<_remaining_length, rest::binary>> = rest
-    <<_packet_id::16, rest::binary>> = rest
+    <<packet_id::16, rest::binary>> = rest
+    <<properties_length, rest::binary>> = rest
+    <<_properties::binary-size(properties_length), rest::binary>> = rest
     <<topic_filter_length::16, rest::binary>> = rest
-    <<topic::binary-size(topic_filter_length), rest::binary>> = rest
-
-    Logger.info("SUBSCRIBE info: #{topic_filter_length}")
+    <<topic_filter::binary-size(topic_filter_length), rest::binary>> = rest
 
     {:subscribe,
      %{
-       :topic => topic
+       :topic_filter => topic_filter,
+       :packet_id => packet_id
      }}
   end
 

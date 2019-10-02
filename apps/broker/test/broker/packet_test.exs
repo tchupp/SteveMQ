@@ -21,11 +21,13 @@ defmodule Broker.PacketTest do
   end
 
   test "parses SUBSCRIBE" do
-    subscribe = <<130, 14, 0, 0, 0, 9, ?t, ?e, ?s, ?t, ?T, ?o, ?p, ?i, ?c, 0>>
+    packet_id = 123
+    subscribe = <<130, 14, packet_id::16, 0, 0, 9, ?t, ?e, ?s, ?t, ?T, ?o, ?p, ?i, ?c, 0>>
     {result, packet} = Broker.Packet.parse(subscribe)
 
     assert result == :subscribe
-    assert packet[:topic] == "testTopic"
+    assert packet[:topic_filter] == "testTopic"
+    assert packet[:packet_id] == packet_id
   end
 
   test "parses PUBLISH" do

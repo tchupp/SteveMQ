@@ -17,7 +17,8 @@ defmodule BrokerTest do
       <<16, 24, 0, 4, ?M, ?Q, ?T, ?T, 5, 2, 0, 60, 0, 0, 11, ?h, ?e, ?l, ?l, ?o, 32, ?w, ?o, ?r,
         ?l, ?d>>
 
-    subscribe = <<130, 14, 0, 0, 0, 9, ?t, ?e, ?s, ?t, ?T, ?o, ?p, ?i, ?c, 0>>
+    packet_id = 65
+    subscribe = <<130, 14, packet_id::16, 0, 0, 9, ?t, ?e, ?s, ?t, ?T, ?o, ?p, ?i, ?c, 0>>
 
     assert send_and_recv(socket, connect) == <<32, 3, 0, 0, 0>>
     <<144, _::binary>> = send_and_recv(socket, subscribe)
