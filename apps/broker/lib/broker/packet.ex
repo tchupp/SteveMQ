@@ -40,14 +40,25 @@ defmodule Broker.Packet do
     end
   end
 
-  defp parse_subscribe(_msg) do
-    {:subscribe, "that's a SUBSCRIBE"}
+  defp parse_subscribe(msg) do
+    <<_, rest::binary>> = msg
+    <<_remaining_length, rest::binary>> = rest
+    <<_packet_id::16, rest::binary>> = rest
+    <<topic_filter_length::16, rest::binary>> = rest
+    <<topic::binary-size(topic_filter_length), rest::binary>> = rest
+
+    Logger.info("SUBSCRIBE info: #{topic_filter_length}")
+
+    {:subscribe,
+      %{
+       :topic => topic
+       }
+    }
   end
 
   defp parse_publish(msg) do
     <<_, rest::binary>> = msg
-
-    <<remaining_length, rest::binary>> = rest
+    <<_remaining_length, rest::binary>> = rest
     <<topic_length::16, rest::binary>> = rest
     <<topic::binary-size(topic_length), rest::binary>> = rest
     # skipping tons of other possible things to parse
