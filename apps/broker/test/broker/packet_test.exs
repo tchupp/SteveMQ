@@ -38,4 +38,31 @@ defmodule Broker.PacketTest do
     assert packet[:topic] == "topic"
     assert packet[:message] == "message"
   end
+
+  test "can parse one length variable length ints" do
+    assert Broker.Packet.parse_variable_int(<<0, 0>>) == {0, <<0>>}
+    assert Broker.Packet.parse_variable_int(<<127, 0>>) == {127, <<0>>}
+  end
+
+  test "can parse two length variable length ints" do
+    assert Broker.Packet.parse_variable_int(<<128, 1, 0>>) == {128, <<0>>}
+    assert Broker.Packet.parse_variable_int(<<255, 127, 0>>) == {16_383, <<0>>}
+  end
+
+  test "can parse three length variable length ints" do
+    assert Broker.Packet.parse_variable_int(<<128, 128, 1, 0>>) == {16_384, <<0>>}
+    assert Broker.Packet.parse_variable_int(<<255, 255, 127, 0>>) == {2_097_151, <<0>>}
+  end
+
+  test "can parse four length variable length ints" do
+    assert Broker.Packet.parse_variable_int(<<128, 128, 128, 1, 0>>) == {2_097_152, <<0>>}
+    assert Broker.Packet.parse_variable_int(<<255, 255, 255, 127, 0>>) == {268_435_455, <<0>>}
+  end
+
+  test "max variable length bytes is 4" do
+    assert_raise RuntimeError, ~r/error/, fn ->
+      Broker.Packet.parse_variable_int(<<255, 255, 255, 255, 7>>)
+    end
+  end
+
 end
