@@ -74,16 +74,16 @@ defmodule Broker.Packet do
       raise "error parsing variable length int: encountered more than 4 bytes"
     end
 
-    <<more_bytes?::1, x::7, rest::binary>> = bytes
+    <<more_bytes?::1, current_byte_value::7, rest::binary>> = bytes
     multiplier = :math.pow(128, level)
 
     case more_bytes? do
       0 ->
-        {x * multiplier, rest}
+        {current_byte_value * multiplier, rest}
 
       1 ->
-        {y, rest} = parse_variable_int(rest, level + 1)
-        {x * multiplier + y, rest}
+        {other_bytes_value, rest} = parse_variable_int(rest, level + 1)
+        {current_byte_value * multiplier + other_bytes_value, rest}
     end
   end
 end
