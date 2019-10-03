@@ -71,7 +71,7 @@ defmodule Broker.Connection do
   defp handle(socket, {:subscribe, packet}) do
     Logger.info("received SUBSCRIBE to #{packet[:topic_filter]}, sending SUBACK")
 
-    suback = <<144, 4, packet[:packet_id]::16, 0>>
+    suback = <<144, 3, packet[:packet_id]::16, 0>>
     :gen_tcp.send(socket, suback)
   end
 
