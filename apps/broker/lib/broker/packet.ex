@@ -15,7 +15,7 @@ defmodule Broker.Packet do
     <<_remaining_length, rest::binary>> = rest
 
     <<protocol_length::16, rest::binary>> = rest
-    <<protocol::binary-size(protocol_length), rest::binary>> = rest
+    <<_protocol::binary-size(protocol_length), rest::binary>> = rest
     <<protocol_level, rest::binary>> = rest
     <<connect_flags, rest::binary>> = rest
     <<keep_alive::16, rest::binary>> = rest
@@ -41,7 +41,7 @@ defmodule Broker.Packet do
     <<properties_length, rest::binary>> = rest
     <<_properties::binary-size(properties_length), rest::binary>> = rest
     <<topic_filter_length::16, rest::binary>> = rest
-    <<topic_filter::binary-size(topic_filter_length), rest::binary>> = rest
+    <<topic_filter::binary-size(topic_filter_length), _::binary>> = rest
 
     {:subscribe,
      %{
@@ -62,5 +62,25 @@ defmodule Broker.Packet do
        :topic => topic,
        :message => rest
      }}
+  end
+
+  def parse_variable_int(bytes) do
+      parse_variable_int(bytes, 0)
+  end
+
+  defp parse_variable_int(bytes, level) do
+    if level > 3 do
+      raise "error parsing varible length int: encountered more than 4 bytes"
+    end
+
+    <<more_bytes::1, x::7, rest::binary>> = bytes
+    multiplier = :math.pow(128, level)
+
+    case more_bytes do
+      0 -> {x*multiplier, rest}
+      1 ->
+        {y, rest} = parse_variable_int(rest, level+1)
+        {x*multiplier + y, rest}
+    end
   end
 end
