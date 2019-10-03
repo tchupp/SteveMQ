@@ -42,11 +42,6 @@ defmodule Broker.Connection do
     {:reply, :ok, {socket}}
   end
 
-  defp handle(_, {:error, :closed}) do
-    Logger.info("connection close, shutting down")
-    exit(:shutdown)
-  end
-
   defp handle(socket, {:connect, data}) do
     Broker.Connection.Registry.register(Broker.Connection.Registry, data[:client_id], self())
 
@@ -58,14 +53,6 @@ defmodule Broker.Connection do
 
     connack = <<32, 3, 0, 0, 0>>
     :gen_tcp.send(socket, connack)
-  end
-
-  defp handle(socket, {:not_implemented_connect, msg}) do
-    Logger.info("received CONNECT with unimplemented options: #{msg}")
-
-    #    haven't figured out how to send the right error code, but sending any causes the client to properly disconnect
-    impl_specific_error_connack = <<32, 2, 0, 131>>
-    :gen_tcp.send(socket, impl_specific_error_connack)
   end
 
   defp handle(socket, {:subscribe, packet}) do
