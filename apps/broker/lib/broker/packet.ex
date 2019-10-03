@@ -12,14 +12,14 @@ defmodule Broker.Packet do
 
   defp parse_connect(msg) do
     <<_packet_type, rest::binary>> = msg
-    <<_remaining_length, rest::binary>> = rest
+    {_remaining_length, rest} = parse_variable_int(rest)
 
     <<protocol_length::16, rest::binary>> = rest
     <<_protocol::binary-size(protocol_length), rest::binary>> = rest
     <<protocol_level, rest::binary>> = rest
     <<connect_flags, rest::binary>> = rest
     <<keep_alive::16, rest::binary>> = rest
-    <<props_length, rest::binary>> = rest
+    {props_length, rest} = parse_variable_int(rest)
     <<_properties::binary-size(props_length), rest::binary>> = rest
 
     <<client_id_length::16, rest::binary>> = rest
@@ -36,9 +36,9 @@ defmodule Broker.Packet do
 
   defp parse_subscribe(msg) do
     <<_, rest::binary>> = msg
-    <<_remaining_length, rest::binary>> = rest
+    {_remaining_length, rest} = parse_variable_int(rest)
     <<packet_id::16, rest::binary>> = rest
-    <<properties_length, rest::binary>> = rest
+    {properties_length, rest} = parse_variable_int(rest)
     <<_properties::binary-size(properties_length), rest::binary>> = rest
     <<topic_filter_length::16, rest::binary>> = rest
     <<topic_filter::binary-size(topic_filter_length), _::binary>> = rest
@@ -52,7 +52,7 @@ defmodule Broker.Packet do
 
   defp parse_publish(msg) do
     <<_, rest::binary>> = msg
-    <<_remaining_length, rest::binary>> = rest
+    {_remaining_length, rest} = parse_variable_int(rest)
     <<topic_length::16, rest::binary>> = rest
     <<topic::binary-size(topic_length), rest::binary>> = rest
     # skipping tons of other possible things to parse
@@ -65,7 +65,8 @@ defmodule Broker.Packet do
   end
 
   def parse_variable_int(bytes) do
-      parse_variable_int(bytes, 0)
+    {int, rest} = parse_variable_int(bytes, 0)
+    {trunc(int), rest}
   end
 
   defp parse_variable_int(bytes, level) do
@@ -73,14 +74,16 @@ defmodule Broker.Packet do
       raise "error parsing varible length int: encountered more than 4 bytes"
     end
 
-    <<more_bytes::1, x::7, rest::binary>> = bytes
+    <<more_bytes?::1, x::7, rest::binary>> = bytes
     multiplier = :math.pow(128, level)
 
-    case more_bytes do
-      0 -> {x*multiplier, rest}
+    case more_bytes? do
+      0 ->
+        {x * multiplier, rest}
+
       1 ->
-        {y, rest} = parse_variable_int(rest, level+1)
-        {x*multiplier + y, rest}
+        {y, rest} = parse_variable_int(rest, level + 1)
+        {x * multiplier + y, rest}
     end
   end
 end
