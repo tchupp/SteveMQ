@@ -71,7 +71,7 @@ defmodule Broker.Packet do
 
   defp parse_variable_int(bytes, level) do
     if level > 3 do
-      raise "error parsing varible length int: encountered more than 4 bytes"
+      raise "error parsing variable length int: encountered more than 4 bytes"
     end
 
     <<more_bytes?::1, x::7, rest::binary>> = bytes
