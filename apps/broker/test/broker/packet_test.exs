@@ -59,10 +59,11 @@ defmodule Broker.PacketTest do
     assert Broker.Packet.parse_variable_int(<<255, 255, 255, 127, 0>>) == {268_435_455, <<0>>}
   end
 
+  #  test "parsing varible length ints returns binary "
+
   test "max variable length bytes is 4" do
     assert_raise RuntimeError, ~r/error/, fn ->
       Broker.Packet.parse_variable_int(<<255, 255, 255, 255, 7>>)
     end
   end
-
 end
