@@ -18,7 +18,7 @@ defmodule Broker.Connection do
   def init(socket) do
     server = self()
     Task.start_link(fn -> read_loop(server, socket) end)
-    {:ok, {socket}}
+    {:ok, {socket, "not set"}}
   end
 
   defp read_loop(server, socket) do
@@ -36,10 +36,18 @@ defmodule Broker.Connection do
   end
 
   @impl true
-  def handle_call({:process_incoming, raw_packet}, _from, {socket}) do
+  def handle_call({:process_incoming, raw_packet}, _from, {socket, client_id}) do
     parsed_packet = Broker.Packet.parse(raw_packet)
     handle(socket, parsed_packet)
-    {:reply, :ok, {socket}}
+
+    case parsed_packet do
+      {:connect, data} ->
+        {:reply, :ok, {socket, data[:client_id]}}
+      {:subscribe, data} ->
+        Broker.SubscriptionRegistry.add_subscription(Broker.SubscriptionRegistry, client_id, data[:topic_filter])
+        {:reply, :ok, {socket, client_id}}
+      _ -> {:reply, :ok, {socket, client_id}}
+    end
   end
 
   defp handle(socket, {:connect, data}) do
@@ -56,9 +64,11 @@ defmodule Broker.Connection do
   end
 
   defp handle(socket, {:subscribe, packet}) do
+#    Broker.SubscriptionRegistry.add_subscription(Broker.SubscriptionRegistry, "clientId", packet[:topic_filter])
+
     Logger.info("received SUBSCRIBE to #{packet[:topic_filter]}, sending SUBACK")
 
-    suback = <<144, 3, packet[:packet_id]::16, 0>>
+    suback = <<144, 3, packet[:packet_id] :: 16, 0>>
     :gen_tcp.send(socket, suback)
   end
 
