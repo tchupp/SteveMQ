@@ -3,9 +3,20 @@ defmodule Packet.Decode do
 
   def parse(msg) do
     case msg do
-      <<1::4, 0::4, _::binary>> -> parse_connect(msg)
-      <<3::4, _::4, _::binary>> -> parse_publish(msg)
-      <<8::4, 2::4, _::binary>> -> parse_subscribe(msg)
+      <<01::4, 0::4, _::binary>> -> parse_connect(msg)
+      <<02::4, 0::4, _::binary>> -> parse_connack(msg)
+      <<03::4, _::4, _::binary>> -> parse_publish(msg)
+      <<04::4, 0::4, _::binary>> -> parse_puback(msg)
+      <<05::4, 0::4, _::binary>> -> parse_pubrec(msg)
+      <<06::4, 2::4, _::binary>> -> parse_pubrel(msg)
+      <<07::4, 0::4, _::binary>> -> parse_pubcomp(msg)
+      <<08::4, 2::4, _::binary>> -> parse_subscribe(msg)
+      <<09::4, 0::4, _::binary>> -> parse_suback(msg)
+      <<10::4, 2::4, _::binary>> -> parse_unsubscribe(msg)
+      <<11::4, 0::4, _::binary>> -> parse_unsuback(msg)
+      <<12::4, 0::4, _::binary>> -> parse_pingreq(msg)
+      <<13::4, 0::4, _::binary>> -> parse_pingres(msg)
+      <<14::4, 0::4, _::binary>> -> parse_disconnect(msg)
       _ -> {:error, "could not determine packet type from: #{msg}"}
     end
   end
@@ -34,6 +45,11 @@ defmodule Packet.Decode do
      }}
   end
 
+  defp parse_connack(msg) do
+    Logger.info("RECEIVED A CONNACK")
+    {:error, "connack reasons"}
+  end
+
   defp parse_subscribe(msg) do
     <<_, rest::binary>> = msg
     {_remaining_length, rest} = parse_variable_int(rest)
@@ -50,6 +66,11 @@ defmodule Packet.Decode do
      }}
   end
 
+  defp parse_suback(msg) do
+    Logger.info("RECEIVED A suback")
+    {:error, "suback reasons"}
+  end
+
   defp parse_publish(msg) do
     <<_, rest::binary>> = msg
     {_remaining_length, rest} = parse_variable_int(rest)
@@ -62,6 +83,51 @@ defmodule Packet.Decode do
        :topic => topic,
        :message => rest
      }}
+  end
+
+  defp parse_puback(msg) do
+    Logger.info("RECEIVED A PUBACK")
+    {:error, "puback reasons"}
+  end
+
+  defp parse_pubrec(msg) do
+    Logger.info("RECEIVED A PUBREC")
+    {:error, "pubrec reasons"}
+  end
+
+  defp parse_pubrel(msg) do
+    Logger.info("RECEIVED A PUBREL")
+    {:error, "pubrel reasons"}
+  end
+
+  defp parse_pubcomp(msg) do
+    Logger.info("RECEIVED A PUBCOMP")
+    {:error, "pubcomp reasons"}
+  end
+
+  defp parse_unsubscribe(msg) do
+    Logger.info("RECEIVED A UNSUBSCRIBE")
+    {:error, "unsubscribe reasons"}
+  end
+
+  defp parse_unsuback(msg) do
+    Logger.info("RECEIVED A UNSUBACK")
+    {:error, "unsuback reasons"}
+  end
+
+  defp parse_pingreq(msg) do
+    Logger.info("RECEIVED A PINGREQ")
+    {:error, "pingreq reasons"}
+  end
+
+  defp parse_pingres(msg) do
+    Logger.info("RECEIVED A PINGRES")
+    {:error, "pingres reasons"}
+  end
+
+  defp parse_disconnect(msg) do
+    Logger.info("RECEIVED A DISCONNECT")
+    {:error, "disconnect reasons"}
   end
 
   def parse_variable_int(bytes) do
