@@ -31,10 +31,6 @@ defmodule Broker.PacketTest do
   end
 
   test "parses PUBLISH" do
-    packet_type = <<3::4, 0::4>>
-    remaining_length = 14
-    property_length = 0
-
     publish =
       <<3::4, 0::4>> <>
         <<14>> <> <<0, 5, ?t, ?o, ?p, ?i, ?c>> <> <<0>> <> <<?m, ?e, ?s, ?s, ?a, ?g, ?e>>
