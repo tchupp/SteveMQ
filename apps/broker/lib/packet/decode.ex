@@ -1,4 +1,4 @@
-defmodule Broker.Packet do
+defmodule Packet.Decode do
   require Logger
 
   def parse(msg) do

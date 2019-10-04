@@ -41,7 +41,7 @@ defmodule Broker.Connection do
 
   @impl true
   def handle_call({:process_incoming, raw_packet}, _from, {socket, client_id}) do
-    parsed_packet = Broker.Packet.parse(raw_packet)
+    parsed_packet = Packet.Decode.parse(raw_packet)
     handle({socket, client_id}, parsed_packet)
   end
 
