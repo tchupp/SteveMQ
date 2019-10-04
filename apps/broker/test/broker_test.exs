@@ -28,7 +28,7 @@ defmodule BrokerTest do
     bad_header_flags = 4
     connect = <<1::4, bad_header_flags::4, 0, 0, 0>>
 
-    <<32, 2, 0, reason_code>> = send_and_recv(socket, connect)
+    <<32, 3, 0, 0, reason_code>> = send_and_recv(socket, connect)
     assert reason_code != 0
   end
 
