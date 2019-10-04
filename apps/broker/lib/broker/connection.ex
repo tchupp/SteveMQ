@@ -12,6 +12,10 @@ defmodule Broker.Connection do
     GenServer.call(server, {:process_incoming, packet})
   end
 
+  def publish_outgoing(server, packet) do
+    GenServer.call(server, {:publish_outgoing, packet})
+  end
+
   # server
 
   @impl true
@@ -38,16 +42,46 @@ defmodule Broker.Connection do
   @impl true
   def handle_call({:process_incoming, raw_packet}, _from, {socket, client_id}) do
     parsed_packet = Broker.Packet.parse(raw_packet)
-    handle(socket, parsed_packet)
 
     case parsed_packet do
       {:connect, data} ->
+        handle(socket, parsed_packet)
         {:reply, :ok, {socket, data[:client_id]}}
+
       {:subscribe, data} ->
         Broker.SubscriptionRegistry.add_subscription(Broker.SubscriptionRegistry, client_id, data[:topic_filter])
+
+        handle(socket, parsed_packet)
         {:reply, :ok, {socket, client_id}}
-      _ -> {:reply, :ok, {socket, client_id}}
+
+      {:publish, data} ->
+        handle(socket, parsed_packet)
+
+        subscribers = Broker.SubscriptionRegistry.get_subscribers(Broker.SubscriptionRegistry, data[:topic])
+        for subscriber <- subscribers do
+          pid = Broker.Connection.Registry.get_pid(Broker.Connection.Registry, subscriber)
+          Broker.Connection.publish_outgoing(pid, parsed_packet)
+        end
+
+        {:reply, :ok, {socket, client_id}}
+
+      _ ->
+        {:reply, :ok, {socket, client_id}}
     end
+  end
+
+  @impl true
+  def handle_call({:publish_outgoing, {:publish, data}}, _from, {socket, client_id}) do
+    Logger.info("Publishing to client with msg: #{data[:message]}")
+    topic_length = byte_size(data[:topic])
+    msg_length = byte_size(data[:message])
+    remaining_length = 2 + topic_length + 1 + msg_length
+
+    publish =
+      <<3 :: 4, 0 :: 4, remaining_length, 0, topic_length>> <> data[:topic] <> <<0>> <> data[:message]
+
+    :gen_tcp.send(socket, publish)
+    {:reply, :ok, {socket, client_id}}
   end
 
   defp handle(socket, {:connect, data}) do
@@ -64,19 +98,17 @@ defmodule Broker.Connection do
   end
 
   defp handle(socket, {:subscribe, packet}) do
-#    Broker.SubscriptionRegistry.add_subscription(Broker.SubscriptionRegistry, "clientId", packet[:topic_filter])
-
     Logger.info("received SUBSCRIBE to #{packet[:topic_filter]}, sending SUBACK")
 
     suback = <<144, 3, packet[:packet_id] :: 16, 0>>
     :gen_tcp.send(socket, suback)
   end
 
-  defp handle(socket, {:publish, _}) do
-    Logger.info("received PUBLISH... sending nonsense")
+  defp handle(socket, {:publish, data}) do
+    Logger.info("received PUBLISH to #{data[:topic]}... sending nonsense")
 
-    suback = <<144, 4, 3, 31, ?h, ?i>>
-    :gen_tcp.send(socket, suback)
+    puback = <<144, 4, 3, 31, ?h, ?i>>
+    :gen_tcp.send(socket, puback)
   end
 
   defp handle(socket, {:error, error}) do

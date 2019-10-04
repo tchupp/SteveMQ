@@ -13,13 +13,6 @@ defmodule Broker.Connection.RegistryTest do
     assert Broker.Connection.Registry.get_pid(registry, "testClientId") == self()
   end
 
-  test "deletes values by key", %{registry: registry} do
-    Broker.Connection.Registry.register(registry, "mqttClientOfSomeSort", self())
-
-    assert Broker.Connection.Registry.remove(registry, "mqttClientOfSomeSort") == :ok
-    assert Broker.Connection.Registry.get_pid(registry, "mqttClientOfSomeSort") == nil
-  end
-
   test "only saves new pid when another is registered with same client id", %{registry: registry} do
     task =
       Task.async(fn ->

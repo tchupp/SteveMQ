@@ -15,10 +15,6 @@ defmodule Broker.Connection.Registry do
     GenServer.call(registry, {:register, client_id, pid})
   end
 
-  def remove(registry, client_id) do
-    GenServer.call(registry, {:remove, client_id})
-  end
-
   @impl true
   def init(_opts) do
     {:ok, {%{}, %{}}}
@@ -35,14 +31,11 @@ defmodule Broker.Connection.Registry do
   def handle_call({:register, client_id, pid}, _from, {client_id_map, monitor_refs}) do
     monitor_ref = Process.monitor(pid)
 
-    {:reply, :ok,
-     {Map.put(client_id_map, client_id, pid), Map.put(monitor_refs, monitor_ref, client_id)}}
-  end
-
-  @impl true
-  def handle_call({:remove, client_id}, _from, {clients_to_pids, monitor_refs}) do
-    {_removed_pid, new_clients_map} = Map.pop(clients_to_pids, client_id)
-    {:reply, :ok, {new_clients_map, monitor_refs}}
+    {
+      :reply,
+      :ok,
+      {Map.put(client_id_map, client_id, pid), Map.put(monitor_refs, monitor_ref, client_id)}
+    }
   end
 
   @impl true
