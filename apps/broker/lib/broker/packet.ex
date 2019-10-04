@@ -5,8 +5,9 @@ defmodule Broker.Packet do
     case msg do
       <<1::4, 0::4, _::binary>> -> parse_connect(msg)
       <<3::4, _::4, _::binary>> -> parse_publish(msg)
+      <<4::4, 0::4, _::binary>> -> parse_puback(msg)
       <<8::4, 2::4, _::binary>> -> parse_subscribe(msg)
-      _ -> {:error, "could not determine packet type"}
+      _ -> {:error, "could not determine packet type from: #{msg}"}
     end
   end
 
@@ -55,7 +56,7 @@ defmodule Broker.Packet do
     {_remaining_length, rest} = parse_variable_int(rest)
     <<topic_length::16, rest::binary>> = rest
     <<topic::binary-size(topic_length), rest::binary>> = rest
-    # skipping tons of other possible things to parse
+    {_properties_length, rest} = parse_variable_int(rest)
 
     {:publish,
      %{
@@ -64,12 +65,17 @@ defmodule Broker.Packet do
      }}
   end
 
+  defp parse_puback(msg) do
+    Logger.info("RECEIVED A PUBACK")
+    {:error, "puback reasons"}
+  end
+
   def parse_variable_int(bytes) do
-    {int, rest} = parse_variable_int(bytes, 0)
+    {int, rest} = parse_variable_int(bytes, 0, 0)
     {trunc(int), rest}
   end
 
-  defp parse_variable_int(bytes, level) do
+  defp parse_variable_int(bytes, level, sum) do
     if level > 3 do
       raise "error parsing variable length int: encountered more than 4 bytes"
     end
@@ -79,11 +85,10 @@ defmodule Broker.Packet do
 
     case more_bytes? do
       0 ->
-        {current_byte_value * multiplier, rest}
+        {current_byte_value * multiplier + sum, rest}
 
       1 ->
-        {other_bytes_value, rest} = parse_variable_int(rest, level + 1)
-        {current_byte_value * multiplier + other_bytes_value, rest}
+        parse_variable_int(rest, level + 1, current_byte_value * multiplier + sum)
     end
   end
 end
