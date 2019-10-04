@@ -7,7 +7,7 @@ defmodule Broker.SubscriptionRegistryTest do
   end
 
   test "keeps track of each client subscribed to a topic", %{registry: registry} do
-    assert Broker.SubscriptionRegistry.get_subscribers(registry, "a/topic") == nil
+    assert Broker.SubscriptionRegistry.get_subscribers(registry, "a/topic") == []
 
     Broker.SubscriptionRegistry.add_subscription(registry, "client1", "a/topic")
     Broker.SubscriptionRegistry.add_subscription(registry, "client2", "a/topic")
