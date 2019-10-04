@@ -65,7 +65,7 @@ defmodule Broker.Packet do
      }}
   end
 
-  defp parse_puback(msg) do
+  defp parse_puback(_msg) do
     Logger.info("RECEIVED A PUBACK")
     {:error, "puback reasons"}
   end

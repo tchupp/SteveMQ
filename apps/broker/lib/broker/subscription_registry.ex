@@ -15,16 +15,19 @@ defmodule Broker.SubscriptionRegistry do
       fn {topic_to_clients, client_to_topics} ->
         other_subscribers = Map.get(topic_to_clients, topic)
 
-        topic_to_clients = case other_subscribers do
-          nil -> Map.put(topic_to_clients, topic, [client_id])
-          some -> Map.put(topic_to_clients, topic, some ++ [client_id])
-        end
+        topic_to_clients =
+          case other_subscribers do
+            nil -> Map.put(topic_to_clients, topic, [client_id])
+            some -> Map.put(topic_to_clients, topic, some ++ [client_id])
+          end
 
         other_subscribed_topics = Map.get(client_to_topics, client_id)
-        client_to_topics = case other_subscribed_topics do
-          nil -> Map.put(client_to_topics, client_id, [topic])
-          some -> Map.put(client_to_topics, client_id, some ++ [topic])
-        end
+
+        client_to_topics =
+          case other_subscribed_topics do
+            nil -> Map.put(client_to_topics, client_id, [topic])
+            some -> Map.put(client_to_topics, client_id, some ++ [topic])
+          end
 
         {topic_to_clients, client_to_topics}
       end
