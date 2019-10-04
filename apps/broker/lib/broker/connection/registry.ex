@@ -40,8 +40,11 @@ defmodule Broker.Connection.Registry do
 
   @impl true
   def handle_info({:DOWN, ref, :process, _pid, _reason}, {clients_to_pids, monitor_refs}) do
-    {pid, new_refs} = Map.pop(monitor_refs, ref)
-    {_, new_clients} = Map.pop(clients_to_pids, pid)
+    {client_id, new_refs} = Map.pop(monitor_refs, ref)
+    {_, new_clients} = Map.pop(clients_to_pids, client_id)
+
+#    Broker.SubscriptionRegistry.remove_subscription(Broker.SubscriptionRegistry, client_id)
+
     {:noreply, {new_clients, new_refs}}
   end
 end
