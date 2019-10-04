@@ -47,7 +47,7 @@ defmodule Broker.SubscriptionRegistry do
   def get_subscribers(registry, topic) do
     Agent.get(
       registry,
-      fn {topic_to_clients, client_to_topics} ->
+      fn {topic_to_clients, _} ->
         Map.get(topic_to_clients, topic, [])
       end
     )

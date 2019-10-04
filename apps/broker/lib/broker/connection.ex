@@ -53,7 +53,7 @@ defmodule Broker.Connection do
     {:reply, :ok, {socket, client_id}}
   end
 
-  defp handle({socket, client_id}, {:connect, data}) do
+  defp handle({socket, _client_id}, {:connect, data}) do
     Broker.Connection.Registry.register(Broker.Connection.Registry, data[:client_id], self())
     Logger.info("received CONNECT from client id: #{data[:client_id]}. Sending CONNACK")
 
@@ -88,7 +88,7 @@ defmodule Broker.Connection do
     {:reply, :ok, {socket, client_id}}
   end
 
-  defp handle({socket, client_id}, {:error, error}) do
+  defp handle({socket, _client_id}, {:error, error}) do
     Logger.info("error reading tcp socket: #{error}")
 
     :gen_tcp.send(socket, Packet.Encode.connack(:error))
