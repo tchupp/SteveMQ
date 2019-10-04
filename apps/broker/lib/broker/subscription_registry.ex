@@ -4,42 +4,52 @@ defmodule Broker.SubscriptionRegistry do
 
   def start_link(opts) do
     #    map of topic -> [client_ids]
+    #    map of client_id -> [topic]
     name = Keyword.fetch!(opts, :name)
-    Agent.start_link(fn -> %{} end, name: name)
+    Agent.start_link(fn -> {%{}, %{}} end, name: name)
   end
 
   def add_subscription(registry, client_id, topic) do
     Agent.update(
       registry,
-      fn state ->
-        other_clients = Map.get(state, topic)
+      fn {topic_to_clients, client_to_topics} ->
+        other_subscribers = Map.get(topic_to_clients, topic)
 
-        case other_clients do
-          nil -> Map.put(state, topic, [client_id])
-          some -> Map.put(state, topic, some ++ [client_id])
+        topic_to_clients = case other_subscribers do
+          nil -> Map.put(topic_to_clients, topic, [client_id])
+          some -> Map.put(topic_to_clients, topic, some ++ [client_id])
         end
+
+        other_subscribed_topics = Map.get(client_to_topics, client_id)
+        client_to_topics = case other_subscribed_topics do
+          nil -> Map.put(client_to_topics, client_id, [topic])
+          some -> Map.put(client_to_topics, client_id, some ++ [topic])
+        end
+
+        {topic_to_clients, client_to_topics}
       end
     )
   end
 
-  def remove_subscription(registry, client_id, topic) do
+  def remove_subscriptions(registry, client_id) do
     Agent.update(
       registry,
-      fn state ->
-        clients = Map.get(state, topic)
+      fn {topic_to_clients, client_to_topics} ->
+        {topics, client_to_topics} = Map.pop(client_to_topics, client_id, [])
 
-        case clients do
-          nil -> state
-          some -> Map.put(state, topic, some -- [client_id])
-        end
+        topic_to_clients = Map.drop(topic_to_clients, topics)
+
+        {topic_to_clients, client_to_topics}
       end
     )
   end
 
   def get_subscribers(registry, topic) do
-    case Agent.get(registry, &Map.get(&1, topic)) do
-      nil -> []
-      some -> some
-    end
+    Agent.get(
+      registry,
+      fn {topic_to_clients, client_to_topics} ->
+        Map.get(topic_to_clients, topic, [])
+      end
+    )
   end
 end
