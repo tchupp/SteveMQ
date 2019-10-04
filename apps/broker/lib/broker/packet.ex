@@ -5,7 +5,6 @@ defmodule Broker.Packet do
     case msg do
       <<1::4, 0::4, _::binary>> -> parse_connect(msg)
       <<3::4, _::4, _::binary>> -> parse_publish(msg)
-      <<4::4, 0::4, _::binary>> -> parse_puback(msg)
       <<8::4, 2::4, _::binary>> -> parse_subscribe(msg)
       _ -> {:error, "could not determine packet type from: #{msg}"}
     end
@@ -63,11 +62,6 @@ defmodule Broker.Packet do
        :topic => topic,
        :message => rest
      }}
-  end
-
-  defp parse_puback(_msg) do
-    Logger.info("RECEIVED A PUBACK")
-    {:error, "puback reasons"}
   end
 
   def parse_variable_int(bytes) do
