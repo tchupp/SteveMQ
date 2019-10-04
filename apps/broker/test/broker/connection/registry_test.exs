@@ -15,11 +15,9 @@ defmodule Broker.Connection.RegistryTest do
 
   test "only saves new pid when another is registered with same client id", %{registry: registry} do
     task =
-      Task.async(
-        fn ->
-          Broker.Connection.Registry.register(registry, "clientIdThatReconnects", self())
-        end
-      )
+      Task.async(fn ->
+        Broker.Connection.Registry.register(registry, "clientIdThatReconnects", self())
+      end)
 
     Task.await(task)
 
@@ -30,27 +28,22 @@ defmodule Broker.Connection.RegistryTest do
 
   test "removes client from registry if client process goes down", %{registry: registry} do
     Task.await(
-      Task.async(
-        fn ->
-          Broker.Connection.Registry.register(registry, "taskClientId", self())
-        end
-      )
+      Task.async(fn ->
+        Broker.Connection.Registry.register(registry, "taskClientId", self())
+      end)
     )
 
     assert Broker.Connection.Registry.get_pid(registry, "taskClientId") == nil
   end
-
 
   @tag :skip
   test "removes subscription if client process goes down", %{registry: registry} do
     Broker.SubscriptionRegistry.add_subscription(:sub_registry, "taskClientId", "a/topic")
 
     Task.await(
-      Task.async(
-        fn ->
-          Broker.Connection.Registry.register(registry, "taskClientId", self())
-        end
-      )
+      Task.async(fn ->
+        Broker.Connection.Registry.register(registry, "taskClientId", self())
+      end)
     )
 
     assert Broker.SubscriptionRegistry.get_subscribers(:sub_registry, "a/topic") == []
