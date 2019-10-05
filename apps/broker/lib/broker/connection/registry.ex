@@ -43,7 +43,7 @@ defmodule Broker.Connection.Registry do
     {client_id, new_refs} = Map.pop(monitor_refs, ref)
     {_, new_clients} = Map.pop(clients_to_pids, client_id)
 
-    #    Broker.SubscriptionRegistry.remove_subscription(Broker.SubscriptionRegistry, client_id)
+    Broker.SubscriptionRegistry.remove_subscriptions(Broker.SubscriptionRegistry, client_id)
 
     {:noreply, {new_clients, new_refs}}
   end
