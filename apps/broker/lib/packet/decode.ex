@@ -127,7 +127,7 @@ defmodule Packet.Decode do
 
   defp parse_disconnect(msg) do
     Logger.info("RECEIVED A DISCONNECT")
-    {:error, "disconnect reasons"}
+    {:disconnect, "disconnect reasons"}
   end
 
   def parse_variable_int(bytes) do

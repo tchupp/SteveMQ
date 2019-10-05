@@ -22,7 +22,7 @@ defmodule Broker.Connection do
   def init(socket) do
     server = self()
     Task.start_link(fn -> read_loop(server, socket) end)
-    {:ok, {socket, "not set"}}
+    {:ok, {socket, :none}}
   end
 
   defp read_loop(server, socket) do
@@ -46,46 +46,52 @@ defmodule Broker.Connection do
   end
 
   @impl true
-  def handle_call({:publish_outgoing, {:publish, data}}, _from, {socket, client_id}) do
-    Logger.info("Publishing to client with msg: #{data[:message]}")
+  def handle_call({:publish_outgoing, {:publish, %{topic: topic, message: message}}}, _from, {socket, client_id}) do
+    Logger.info("Publishing to client with msg: #{message}")
 
-    :gen_tcp.send(socket, Packet.Encode.publish(data[:topic], data[:message]))
+    :gen_tcp.send(socket, Packet.Encode.publish(topic, message))
     {:reply, :ok, {socket, client_id}}
   end
 
-  defp handle({socket, _client_id}, {:connect, data}) do
-    Broker.Connection.Registry.register(Broker.Connection.Registry, data[:client_id], self())
-    Logger.info("received CONNECT from client id: #{data[:client_id]}. Sending CONNACK")
+  defp handle({socket, :none}, {:connect, %{client_id: client_id}}) do
+    Broker.Connection.Registry.register(Broker.Connection.Registry, client_id, self())
+    Logger.info("received CONNECT from client id: #{client_id}. Sending CONNACK")
 
     :gen_tcp.send(socket, Packet.Encode.connack())
-    {:reply, :ok, {socket, data[:client_id]}}
+    {:reply, :ok, {socket, {:some, client_id}}}
   end
 
-  defp handle({socket, client_id}, {:subscribe, data}) do
-    Logger.info("received SUBSCRIBE to #{data[:topic_filter]}, sending SUBACK")
+  defp handle({socket, {:some, client_id}}, {:subscribe, %{topic_filter: topic_filter, packet_id: packet_id}}) do
+    Logger.info("received SUBSCRIBE to #{topic_filter}, sending SUBACK")
 
     Broker.SubscriptionRegistry.add_subscription(
       Broker.SubscriptionRegistry,
       client_id,
-      data[:topic_filter]
+      topic_filter
     )
 
-    :gen_tcp.send(socket, Packet.Encode.suback(data[:packet_id]))
-    {:reply, :ok, {socket, client_id}}
+    :gen_tcp.send(socket, Packet.Encode.suback(packet_id))
+    {:reply, :ok, {socket, {:some, client_id}}}
   end
 
-  defp handle({socket, client_id}, {:publish, data}) do
-    Logger.info("received PUBLISH to #{data[:topic]}")
+  defp handle({socket, {:some, client_id}}, {:publish, %{topic: topic, message: message}}) do
+    Logger.info("received PUBLISH to #{topic} from client: #{client_id}")
 
     subscribers =
-      Broker.SubscriptionRegistry.get_subscribers(Broker.SubscriptionRegistry, data[:topic])
+      Broker.SubscriptionRegistry.get_subscribers(Broker.SubscriptionRegistry, topic)
 
     for subscriber <- subscribers do
       pid = Broker.Connection.Registry.get_pid(Broker.Connection.Registry, subscriber)
-      Broker.Connection.publish_outgoing(pid, {:publish, data})
+      Broker.Connection.publish_outgoing(pid, {:publish, %{topic: topic, message: message}})
     end
 
-    {:reply, :ok, {socket, client_id}}
+    {:reply, :ok, {socket, {:some, client_id}}}
+  end
+
+  defp handle({socket, {:some, client_id}}, {:disconnect}) do
+    Logger.info("received DISCONNECT from client id: #{client_id}")
+
+    {:reply, :ok, {socket, {:some, client_id}}}
   end
 
   defp handle({socket, _client_id}, {:error, error}) do
