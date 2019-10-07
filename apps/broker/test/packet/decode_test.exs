@@ -41,6 +41,17 @@ defmodule Packet.DecodeTest do
     assert packet[:message] == "message"
   end
 
+  test "parses PUBLISH with extra chars" do
+    publish =
+      <<3::4, 0::4>> <>
+        <<15>> <> <<0, 5, ?t, ?o, ?p, ?i, ?c>> <> <<0>> <> <<?m, ?e, ?s, ?s, ?a, ?g, ?e, ??, ?!>>
+
+    {_, packet} = Packet.Decode.parse(publish)
+
+    assert packet[:topic] == "topic"
+    assert packet[:message] == "message"
+  end
+
   test "can parse one length variable length ints" do
     assert Packet.Decode.parse_variable_int(<<0, 0>>) == {0, 1, <<0>>}
     assert Packet.Decode.parse_variable_int(<<127, 0>>) == {127, 1, <<0>>}
