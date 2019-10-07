@@ -33,7 +33,7 @@ defmodule Packet.DecodeTest do
   test "parses PUBLISH" do
     publish =
       <<3::4, 0::4>> <>
-        <<14>> <> <<0, 5, ?t, ?o, ?p, ?i, ?c>> <> <<0>> <> <<?m, ?e, ?s, ?s, ?a, ?g, ?e>>
+        <<15>> <> <<0, 5, ?t, ?o, ?p, ?i, ?c>> <> <<0>> <> <<?m, ?e, ?s, ?s, ?a, ?g, ?e>>
 
     {_, packet} = Packet.Decode.parse(publish)
 
@@ -42,23 +42,23 @@ defmodule Packet.DecodeTest do
   end
 
   test "can parse one length variable length ints" do
-    assert Packet.Decode.parse_variable_int(<<0, 0>>) == {0, <<0>>}
-    assert Packet.Decode.parse_variable_int(<<127, 0>>) == {127, <<0>>}
+    assert Packet.Decode.parse_variable_int(<<0, 0>>) == {0, 1, <<0>>}
+    assert Packet.Decode.parse_variable_int(<<127, 0>>) == {127, 1, <<0>>}
   end
 
   test "can parse two length variable length ints" do
-    assert Packet.Decode.parse_variable_int(<<128, 1, 0>>) == {128, <<0>>}
-    assert Packet.Decode.parse_variable_int(<<255, 127, 0>>) == {16_383, <<0>>}
+    assert Packet.Decode.parse_variable_int(<<128, 1, 0>>) == {128, 2, <<0>>}
+    assert Packet.Decode.parse_variable_int(<<255, 127, 0>>) == {16_383, 2, <<0>>}
   end
 
   test "can parse three length variable length ints" do
-    assert Packet.Decode.parse_variable_int(<<128, 128, 1, 0>>) == {16_384, <<0>>}
-    assert Packet.Decode.parse_variable_int(<<255, 255, 127, 0>>) == {2_097_151, <<0>>}
+    assert Packet.Decode.parse_variable_int(<<128, 128, 1, 0>>) == {16_384, 3, <<0>>}
+    assert Packet.Decode.parse_variable_int(<<255, 255, 127, 0>>) == {2_097_151, 3, <<0>>}
   end
 
   test "can parse four length variable length ints" do
-    assert Packet.Decode.parse_variable_int(<<128, 128, 128, 1, 0>>) == {2_097_152, <<0>>}
-    assert Packet.Decode.parse_variable_int(<<255, 255, 255, 127, 0>>) == {268_435_455, <<0>>}
+    assert Packet.Decode.parse_variable_int(<<128, 128, 128, 1, 0>>) == {2_097_152, 4, <<0>>}
+    assert Packet.Decode.parse_variable_int(<<255, 255, 255, 127, 0>>) == {268_435_455, 4, <<0>>}
   end
 
   test "max variable length bytes is 4" do

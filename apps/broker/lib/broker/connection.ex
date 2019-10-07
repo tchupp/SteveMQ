@@ -46,7 +46,11 @@ defmodule Broker.Connection do
   end
 
   @impl true
-  def handle_call({:publish_outgoing, {:publish, %{topic: topic, message: message}}}, _from, {socket, client_id}) do
+  def handle_call(
+        {:publish_outgoing, {:publish, %{topic: topic, message: message}}},
+        _from,
+        {socket, client_id}
+      ) do
     Logger.info("Publishing to client with msg: #{message}")
 
     :gen_tcp.send(socket, Packet.Encode.publish(topic, message))
@@ -61,7 +65,10 @@ defmodule Broker.Connection do
     {:reply, :ok, {socket, {:some, client_id}}}
   end
 
-  defp handle({socket, {:some, client_id}}, {:subscribe, %{topic_filter: topic_filter, packet_id: packet_id}}) do
+  defp handle(
+         {socket, {:some, client_id}},
+         {:subscribe, %{topic_filter: topic_filter, packet_id: packet_id}}
+       ) do
     Logger.info("received SUBSCRIBE to #{topic_filter}, sending SUBACK")
 
     Broker.SubscriptionRegistry.add_subscription(
@@ -77,8 +84,7 @@ defmodule Broker.Connection do
   defp handle({socket, {:some, client_id}}, {:publish, %{topic: topic, message: message}}) do
     Logger.info("received PUBLISH to #{topic} from client: #{client_id}")
 
-    subscribers =
-      Broker.SubscriptionRegistry.get_subscribers(Broker.SubscriptionRegistry, topic)
+    subscribers = Broker.SubscriptionRegistry.get_subscribers(Broker.SubscriptionRegistry, topic)
 
     for subscriber <- subscribers do
       pid = Broker.Connection.Registry.get_pid(Broker.Connection.Registry, subscriber)
