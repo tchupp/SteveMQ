@@ -23,14 +23,14 @@ defmodule Packet.Decode do
 
   defp parse_connect(msg) do
     <<_packet_type, rest::binary>> = msg
-    {_remaining_length, rest} = parse_variable_int(rest)
+    {_remaining_length, _rem_length_size, rest} = parse_variable_int(rest)
 
     <<protocol_length::16, rest::binary>> = rest
     <<_protocol::binary-size(protocol_length), rest::binary>> = rest
     <<protocol_level, rest::binary>> = rest
     <<connect_flags, rest::binary>> = rest
     <<keep_alive::16, rest::binary>> = rest
-    {props_length, rest} = parse_variable_int(rest)
+    {props_length, _props_length_size, rest} = parse_variable_int(rest)
     <<_properties::binary-size(props_length), rest::binary>> = rest
 
     <<client_id_length::16, rest::binary>> = rest
@@ -45,16 +45,16 @@ defmodule Packet.Decode do
      }}
   end
 
-  defp parse_connack(msg) do
+  defp parse_connack(_msg) do
     Logger.info("RECEIVED A CONNACK")
     {:error, "connack reasons"}
   end
 
   defp parse_subscribe(msg) do
     <<_, rest::binary>> = msg
-    {_remaining_length, rest} = parse_variable_int(rest)
+    {_remaining_length, _rem_length_size, rest} = parse_variable_int(rest)
     <<packet_id::16, rest::binary>> = rest
-    {properties_length, rest} = parse_variable_int(rest)
+    {properties_length, _prop_length_size, rest} = parse_variable_int(rest)
     <<_properties::binary-size(properties_length), rest::binary>> = rest
     <<topic_filter_length::16, rest::binary>> = rest
     <<topic_filter::binary-size(topic_filter_length), _::binary>> = rest
@@ -66,73 +66,76 @@ defmodule Packet.Decode do
      }}
   end
 
-  defp parse_suback(msg) do
+  defp parse_suback(_msg) do
     Logger.info("RECEIVED A suback")
     {:error, "suback reasons"}
   end
 
   defp parse_publish(msg) do
     <<_, rest::binary>> = msg
-    {_remaining_length, rest} = parse_variable_int(rest)
+    {remaining_length, _rem_length_size, rest} = parse_variable_int(rest)
     <<topic_length::16, rest::binary>> = rest
     <<topic::binary-size(topic_length), rest::binary>> = rest
-    {_properties_length, rest} = parse_variable_int(rest)
+    {properties_length, props_length_size, rest} = parse_variable_int(rest)
+
+    msg_length = remaining_length - 2 - topic_length - properties_length - props_length_size
+    <<message::binary-size(msg_length)>> = rest
 
     {:publish,
      %{
        :topic => topic,
-       :message => rest
+       :message => message
      }}
   end
 
-  defp parse_puback(msg) do
+  defp parse_puback(_msg) do
     Logger.info("RECEIVED A PUBACK")
     {:error, "puback reasons"}
   end
 
-  defp parse_pubrec(msg) do
+  defp parse_pubrec(_msg) do
     Logger.info("RECEIVED A PUBREC")
     {:error, "pubrec reasons"}
   end
 
-  defp parse_pubrel(msg) do
+  defp parse_pubrel(_msg) do
     Logger.info("RECEIVED A PUBREL")
     {:error, "pubrel reasons"}
   end
 
-  defp parse_pubcomp(msg) do
+  defp parse_pubcomp(_msg) do
     Logger.info("RECEIVED A PUBCOMP")
     {:error, "pubcomp reasons"}
   end
 
-  defp parse_unsubscribe(msg) do
+  defp parse_unsubscribe(_msg) do
     Logger.info("RECEIVED A UNSUBSCRIBE")
     {:error, "unsubscribe reasons"}
   end
 
-  defp parse_unsuback(msg) do
+  defp parse_unsuback(_msg) do
     Logger.info("RECEIVED A UNSUBACK")
     {:error, "unsuback reasons"}
   end
 
-  defp parse_pingreq(msg) do
+  defp parse_pingreq(_msg) do
     Logger.info("RECEIVED A PINGREQ")
     {:error, "pingreq reasons"}
   end
 
-  defp parse_pingres(msg) do
+  defp parse_pingres(_msg) do
     Logger.info("RECEIVED A PINGRES")
     {:error, "pingres reasons"}
   end
 
-  defp parse_disconnect(msg) do
+  defp parse_disconnect(_msg) do
     Logger.info("RECEIVED A DISCONNECT")
     {:disconnect, "disconnect reasons"}
   end
 
   def parse_variable_int(bytes) do
-    {int, rest} = parse_variable_int(bytes, 0, 0)
-    {trunc(int), rest}
+    {int, num_bytes, rest} = parse_variable_int(bytes, 0, 0)
+    {trunc(int), num_bytes, rest}
   end
 
   defp parse_variable_int(bytes, level, sum) do
@@ -145,7 +148,7 @@ defmodule Packet.Decode do
 
     case more_bytes? do
       0 ->
-        {current_byte_value * multiplier + sum, rest}
+        {current_byte_value * multiplier + sum, level + 1, rest}
 
       1 ->
         parse_variable_int(rest, level + 1, current_byte_value * multiplier + sum)
