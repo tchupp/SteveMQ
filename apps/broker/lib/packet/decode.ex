@@ -79,7 +79,12 @@ defmodule Packet.Decode do
     {properties_length, props_length_size, rest} = parse_variable_int(rest)
 
     msg_length = remaining_length - 2 - topic_length - properties_length - props_length_size
-    <<message::binary-size(msg_length)>> = rest
+
+    message =
+      case rest do
+        <<msg::binary-size(msg_length)>> -> msg
+        <<msg::binary-size(msg_length), _::binary>> -> msg
+      end
 
     {:publish,
      %{
