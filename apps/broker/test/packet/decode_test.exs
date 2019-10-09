@@ -2,8 +2,8 @@ defmodule Packet.DecodeTest do
   use ExUnit.Case
 
   test "returns error for unrecognized message types" do
-    {result, _} = Packet.Decode.parse(<<0, 2, 0, 0>>)
-    assert result == :error
+    {type, _} = Packet.Decode.decode(<<0, 2, 0, 0>>)
+    assert type == :unknown
   end
 
   test "parses CONNECT" do
@@ -11,9 +11,9 @@ defmodule Packet.DecodeTest do
       <<16, 24, 0, 4, ?M, ?Q, ?T, ?T, 5, 2, 0, 60, 0, 0, 11, ?h, ?e, ?l, ?l, ?o, 32, ?w, ?o, ?r,
         ?l, ?d>>
 
-    {result, data} = Packet.Decode.parse(connect)
+    {type, data} = Packet.Decode.decode(connect)
 
-    assert result == :connect
+    assert type == :connect
     assert data[:client_id] == "hello world"
     assert data[:connect_flags] == 2
     assert data[:keep_alive] == 60
@@ -22,32 +22,42 @@ defmodule Packet.DecodeTest do
 
   test "parses SUBSCRIBE" do
     packet_id = 123
-    subscribe = <<130, 14, packet_id::16, 0, 0, 9, ?t, ?e, ?s, ?t, ?T, ?o, ?p, ?i, ?c, 0>>
-    {result, packet} = Packet.Decode.parse(subscribe)
+    subscribe = <<8 :: 4, 2 :: 4>> <>
+                <<14, packet_id :: 16, 0, 0, 9>> <>
+                <<?t, ?e, ?s, ?t, ?T, ?o, ?p, ?i, ?c, 0>>
+    {type, packet} = Packet.Decode.decode(subscribe)
 
-    assert result == :subscribe
+    assert type == :subscribe
     assert packet[:topic_filter] == "testTopic"
     assert packet[:packet_id] == packet_id
   end
 
   test "parses PUBLISH" do
     publish =
-      <<3::4, 0::4>> <>
-        <<15>> <> <<0, 5, ?t, ?o, ?p, ?i, ?c>> <> <<0>> <> <<?m, ?e, ?s, ?s, ?a, ?g, ?e>>
+      <<3 :: 4, 0 :: 4>> <>
+      <<15>> <>
+      <<0, 5, ?t, ?o, ?p, ?i, ?c>> <>
+      <<0>> <>
+      <<?m, ?e, ?s, ?s, ?a, ?g, ?e>>
 
-    {_, packet} = Packet.Decode.parse(publish)
+    {type, packet} = Packet.Decode.decode(publish)
 
+    assert type == :publish
     assert packet[:topic] == "topic"
     assert packet[:message] == "message"
   end
 
   test "parses PUBLISH with extra chars" do
     publish =
-      <<3::4, 0::4>> <>
-        <<15>> <> <<0, 5, ?t, ?o, ?p, ?i, ?c>> <> <<0>> <> <<?m, ?e, ?s, ?s, ?a, ?g, ?e, ??, ?!>>
+      <<3 :: 4, 0 :: 4>> <>
+      <<15>> <>
+      <<0, 5, ?t, ?o, ?p, ?i, ?c>> <>
+      <<0>> <>
+      <<?m, ?e, ?s, ?s, ?a, ?g, ?e, ??, ?!>>
 
-    {_, packet} = Packet.Decode.parse(publish)
+    {type, packet} = Packet.Decode.decode(publish)
 
+    assert type == :publish
     assert packet[:topic] == "topic"
     assert packet[:message] == "message"
   end
