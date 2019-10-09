@@ -78,4 +78,11 @@ defmodule Broker.Connection do
     fire_event_internal(event)
     {:noreply, state}
   end
+
+  defp handle({socket, _client_id}, {:unknown, error}) do
+    Logger.info("unknown packet: #{error}")
+
+    :gen_tcp.send(socket, Packet.Encode.connack(:error))
+    exit(error)
+  end
 end
