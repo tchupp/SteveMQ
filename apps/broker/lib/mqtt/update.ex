@@ -1,5 +1,4 @@
 defmodule Mqtt.Update do
-
   # update(event, state) -> state, [command]
   def update(event, state) do
     {socket, client_id} = state
