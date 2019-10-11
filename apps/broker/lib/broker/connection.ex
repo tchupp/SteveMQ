@@ -12,8 +12,8 @@ defmodule Broker.Connection do
     GenServer.call(server, {:process_incoming, packet})
   end
 
-  def publish_outgoing(server, packet) do
-    GenServer.call(server, {:publish_outgoing, packet})
+  def schedule_cmd(server, cmd) do
+    GenServer.call(server, {:cmd_external, cmd})
   end
 
   # server
@@ -30,80 +30,63 @@ defmodule Broker.Connection do
 
     case result do
       {:ok, raw_packet} ->
-        :ok = process_incoming(server, raw_packet)
+        packet = Packet.Decode.parse(raw_packet)
+        :ok = process_incoming(server, packet)
         read_loop(server, socket)
 
       {:error, :closed} ->
-        Logger.info("connection closed. shutting down process")
-        exit(:shutdown)
+        :ok = process_incoming(server, {:connection_closed})
     end
   end
 
-  @impl true
-  def handle_call({:process_incoming, raw_packet}, _from, {socket, client_id}) do
-    parsed_packet = Packet.Decode.parse(raw_packet)
-    handle({socket, client_id}, parsed_packet)
+  defp fire_event(event) do
+    GenServer.cast(self(), {:event, event})
   end
 
   @impl true
-  def handle_call(
-        {:publish_outgoing, {:publish, %{topic: topic, message: message}}},
-        _from,
-        {socket, client_id}
-      ) do
-    Logger.info("Publishing to client with msg: #{message}")
-
-    :gen_tcp.send(socket, Packet.Encode.publish(topic, message))
-    {:reply, :ok, {socket, client_id}}
+  def handle_call({:process_incoming, event}, _from, state) do
+    fire_event(event)
+    {:reply, :ok, state}
   end
 
-  defp handle({socket, :none}, {:connect, %{client_id: client_id}}) do
-    Broker.Connection.Registry.register(Broker.Connection.Registry, client_id, self())
-    Logger.info("received CONNECT from client id: #{client_id}. Sending CONNACK")
+  @impl true
+  def handle_cast({:event, event}, state) do
+    {state, commands} = Mqtt.Update.update(event, state)
 
-    :gen_tcp.send(socket, Packet.Encode.connack())
-    {:reply, :ok, {socket, {:some, client_id}}}
-  end
-
-  defp handle(
-         {socket, {:some, client_id}},
-         {:subscribe, %{topic_filter: topic_filter, packet_id: packet_id}}
-       ) do
-    Logger.info("received SUBSCRIBE to #{topic_filter}, sending SUBACK")
-
-    Broker.SubscriptionRegistry.add_subscription(
-      Broker.SubscriptionRegistry,
-      client_id,
-      topic_filter
-    )
-
-    :gen_tcp.send(socket, Packet.Encode.suback(packet_id))
-    {:reply, :ok, {socket, {:some, client_id}}}
-  end
-
-  defp handle({socket, {:some, client_id}}, {:publish, %{topic: topic, message: message}}) do
-    Logger.info("received PUBLISH to #{topic} from client: #{client_id}")
-
-    subscribers = Broker.SubscriptionRegistry.get_subscribers(Broker.SubscriptionRegistry, topic)
-
-    for subscriber <- subscribers do
-      pid = Broker.Connection.Registry.get_pid(Broker.Connection.Registry, subscriber)
-      Broker.Connection.publish_outgoing(pid, {:publish, %{topic: topic, message: message}})
+    for command <- commands do
+      GenServer.cast(self(), {:cmd, command})
     end
 
-    {:reply, :ok, {socket, {:some, client_id}}}
+    {:noreply, state}
   end
 
-  defp handle({socket, {:some, client_id}}, {:disconnect}) do
-    Logger.info("received DISCONNECT from client id: #{client_id}")
+  @impl true
+  def handle_cast({:cmd, command}, state) do
+    event = command.(state)
 
-    {:reply, :ok, {socket, {:some, client_id}}}
+    case event do
+      {type, _} when type != :none ->
+        fire_event(event)
+
+      _ ->
+        nil
+    end
+
+    {:noreply, state}
   end
 
-  defp handle({socket, _client_id}, {:error, error}) do
-    Logger.info("error reading tcp socket: #{error}")
+  @impl true
+  def handle_call({:cmd_external, command}, _from, state) do
+    event = command.(state)
 
-    :gen_tcp.send(socket, Packet.Encode.connack(:error))
-    exit(error)
+    case event do
+      {type, _} when type != :none ->
+        fire_event(event)
+      _ ->
+        nil
+    end
+
+    {:reply, :ok, state}
   end
+
 end
