@@ -73,7 +73,7 @@ defmodule Broker.Command do
 
   #  this is totally not sending a disconnect right now, but this works better than not
   def disconnect(socket, error) do
-    fn ->
+    fn _ ->
       Logger.info("error reading tcp socket: #{error}")
       :gen_tcp.send(socket, Packet.Encode.connack(:error))
       exit(error)
