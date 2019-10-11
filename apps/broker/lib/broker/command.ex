@@ -47,7 +47,6 @@ defmodule Broker.Command do
         Broker.SubscriptionRegistry.get_subscribers(Broker.SubscriptionRegistry, topic)
 
       for subscriber <- subscribers do
-        Logger.info("scheduling publish for #{subscriber}")
         pid = Broker.Connection.Registry.get_pid(Broker.Connection.Registry, subscriber)
         Broker.Connection.schedule_cmd_external(pid, publish_to_client(topic, message))
       end
