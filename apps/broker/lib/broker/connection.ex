@@ -8,11 +8,11 @@ defmodule Broker.Connection do
     GenServer.start_link(__MODULE__, socket)
   end
 
-  def process_incoming(server, packet) do
-    GenServer.call(server, {:process_incoming, packet})
+  def fire_event_external(server, packet) do
+    GenServer.call(server, {:event_external, packet})
   end
 
-  def schedule_cmd(server, cmd) do
+  def schedule_cmd_external(server, cmd) do
     GenServer.call(server, {:cmd_external, cmd})
   end
 
@@ -31,61 +31,53 @@ defmodule Broker.Connection do
     case result do
       {:ok, raw_packet} ->
         packet = Packet.Decode.parse(raw_packet)
-        :ok = process_incoming(server, packet)
+        :ok = fire_event_external(server, packet)
         read_loop(server, socket)
 
       {:error, :closed} ->
-        :ok = process_incoming(server, {:connection_closed})
+        :ok = fire_event_external(server, {:connection_closed})
     end
   end
 
-  defp fire_event(event) do
-    GenServer.cast(self(), {:event, event})
+  defp fire_event_internal(event) do
+    case event do
+      {type, _} when type != :none ->
+        GenServer.cast(self(), {:event_internal, event})
+      _ ->
+        nil
+    end
+  end
+
+  defp schedule_commands_internal(commands) when is_list(commands) do
+    for cmd <- commands do
+      GenServer.cast(self(), {:cmd_internal, cmd})
+    end
   end
 
   @impl true
-  def handle_call({:process_incoming, event}, _from, state) do
-    fire_event(event)
+  def handle_call({:event_external, event}, _from, state) do
+    fire_event_internal(event)
     {:reply, :ok, state}
   end
 
   @impl true
-  def handle_cast({:event, event}, state) do
+  def handle_cast({:event_internal, event}, state) do
     {state, commands} = Mqtt.Update.update(event, state)
-
-    for command <- commands do
-      GenServer.cast(self(), {:cmd, command})
-    end
-
+    schedule_commands_internal(commands)
     {:noreply, state}
   end
 
   @impl true
-  def handle_cast({:cmd, command}, state) do
+  def handle_cast({:cmd_internal, command}, state) do
     event = command.(state)
-
-    case event do
-      {type, _} when type != :none ->
-        fire_event(event)
-
-      _ ->
-        nil
-    end
-
+    fire_event_internal(event)
     {:noreply, state}
   end
 
   @impl true
   def handle_call({:cmd_external, command}, _from, state) do
     event = command.(state)
-
-    case event do
-      {type, _} when type != :none ->
-        fire_event(event)
-      _ ->
-        nil
-    end
-
+    fire_event_internal(event)
     {:reply, :ok, state}
   end
 
