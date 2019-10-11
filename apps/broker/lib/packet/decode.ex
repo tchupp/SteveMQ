@@ -125,7 +125,7 @@ defmodule Packet.Decode do
 
   defp parse_pingreq(_msg) do
     Logger.info("RECEIVED A PINGREQ")
-    {:error, "pingreq reasons"}
+    {:pingreq}
   end
 
   defp parse_pingres(_msg) do

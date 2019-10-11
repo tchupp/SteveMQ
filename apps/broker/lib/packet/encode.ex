@@ -26,6 +26,10 @@ defmodule Packet.Encode do
     packet_type <> remaining_length <> variable_headers_and_payload
   end
 
+  def pingresp() do
+    <<13::4, 0::4, 0>>
+  end
+
   def utf8(text) do
     text_length = byte_size(text)
     <<text_length::16>> <> text

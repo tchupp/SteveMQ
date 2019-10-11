@@ -28,6 +28,9 @@ defmodule Mqtt.Update do
       {:connection_closed} ->
         {state, [Broker.Command.close_connection()]}
 
+      {:pingreq} ->
+        {state, [Broker.Command.send_pingresp()]}
+
       {:error, error} ->
         {state, [Broker.Command.disconnect(socket, error)]}
 
