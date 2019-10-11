@@ -41,11 +41,8 @@ defmodule Broker.Connection do
 
   defp fire_event_internal(event) do
     case event do
-      {type, _} when type != :none ->
-        GenServer.cast(self(), {:event_internal, event})
-
-      _ ->
-        nil
+      {:none} -> nil
+      _ -> GenServer.cast(self(), {:event_internal, event})
     end
   end
 
