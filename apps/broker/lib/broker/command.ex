@@ -1,6 +1,13 @@
 defmodule Broker.Command do
   require Logger
 
+  @doc """
+    - Return {:none} from commands to report no events
+    - Otherwise, Events look like this: {<event type atom>, <optional: more stuff>}
+
+    - Commands return closures with arity:1, which accept connection state
+  """
+
   def register_clientid(client_id, pid) do
     fn _ ->
       Logger.info("Registering clientId: #{client_id}")
@@ -67,6 +74,13 @@ defmodule Broker.Command do
     fn {_, client_id} ->
       Logger.info("received DISCONNECT from client id: #{client_id}")
       {:none}
+    end
+  end
+
+  def send_pingresp() do
+    fn {socket, _} ->
+      Logger.info("sending PINGRESP")
+      :gen_tcp.send(socket, Packet.Encode.pingresp())
     end
   end
 

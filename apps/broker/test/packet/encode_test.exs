@@ -21,6 +21,10 @@ defmodule Packet.EncodeTest do
     assert publish == <<3::4, 0::4, 12, 0, 7, ?a, ?/, ?t, ?o, ?p, ?i, ?c, 0, ?h, ?i>>
   end
 
+  test "encodes a PINGRES" do
+    assert Packet.Encode.pingresp() == <<13::4, 0::4, 0>>
+  end
+
   test "encodes handle utf8 string > 255 chars" do
     big_string =
       "123456789012345678901234567890" <>
