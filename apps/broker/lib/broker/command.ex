@@ -63,8 +63,8 @@ defmodule Broker.Command do
   end
 
   def publish_to_client(topic, message) do
-    fn {socket, _} ->
-      Logger.info("Publishing to client with msg: #{message}")
+    fn {socket, client_id} ->
+      Logger.info("Publishing to client #{client_id} with msg: #{message}")
       :gen_tcp.send(socket, Packet.Encode.publish(topic, message))
       {:none}
     end
