@@ -43,6 +43,7 @@ defmodule Broker.Connection do
     case event do
       {type, _} when type != :none ->
         GenServer.cast(self(), {:event_internal, event})
+
       _ ->
         nil
     end
@@ -61,6 +62,13 @@ defmodule Broker.Connection do
   end
 
   @impl true
+  def handle_call({:cmd_external, command}, _from, state) do
+    event = command.(state)
+    fire_event_internal(event)
+    {:reply, :ok, state}
+  end
+
+  @impl true
   def handle_cast({:event_internal, event}, state) do
     {state, commands} = Mqtt.Update.update(event, state)
     schedule_commands_internal(commands)
@@ -73,12 +81,4 @@ defmodule Broker.Connection do
     fire_event_internal(event)
     {:noreply, state}
   end
-
-  @impl true
-  def handle_call({:cmd_external, command}, _from, state) do
-    event = command.(state)
-    fire_event_internal(event)
-    {:reply, :ok, state}
-  end
-
 end
