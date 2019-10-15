@@ -30,7 +30,7 @@ defmodule Broker.Connection do
 
     case result do
       {:ok, raw_packet} ->
-        packet = Packet.Decode.parse(raw_packet)
+        packet = Packet.Decode.decode(raw_packet)
         :ok = fire_event_external(server, packet)
         read_loop(server, socket)
 
@@ -77,12 +77,5 @@ defmodule Broker.Connection do
     event = command.(state)
     fire_event_internal(event)
     {:noreply, state}
-  end
-
-  defp handle({socket, _client_id}, {:unknown, error}) do
-    Logger.info("unknown packet: #{error}")
-
-    :gen_tcp.send(socket, Packet.Encode.connack(:error))
-    exit(error)
   end
 end
