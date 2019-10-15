@@ -3,17 +3,108 @@ defmodule Packet.DecodeTest do
 
   describe "CONNECT" do
     test "parses CONNECT" do
+      protocol_level = 5
+
+      will_retain = false
+      will_qos = 1
+      will_present = true
+      clean_session = true
+      keep_alive = 60
+
+      client_id = "hello world"
+
+      will_topic = "if you will it"
+      will_payload = "it is no dream"
+
+      username = "joe dirt"
+      password = "paul rudd"
+
+      packet_length =
+        6 + # protocol size
+        1 + # protocol level size
+        1 + # connect flags size
+        2 + # keep alive size
+        1 + # properties size
+        2 + String.length(client_id) +
+        2 + String.length(will_topic) +
+        2 + String.length(will_payload) +
+        2 + String.length(username) +
+        2 + String.length(password)
+
       connect =
-        <<16, 24, 0, 4, ?M, ?Q, ?T, ?T, 5, 2, 0, 60, 0, 0, 11, ?h, ?e, ?l, ?l, ?o, 32, ?w, ?o, ?r,
-          ?l, ?d>>
+        # fixed header - packet type
+        <<1 :: 4, 0 :: 4>> <>
+        # fixed header - remaining length
+        <<packet_length>> <>
+        # variable header - protocol
+        <<4::16, "MQTT">> <>
+        # variable header - protocol level
+        <<5>> <>
+        # variable header - connect flags
+        <<
+          flag(username) :: 1,
+          flag(password) :: 1,
+          flag(will_retain) :: 1,
+          will_qos :: 2,
+          flag(will_present) :: 1,
+          flag(clean_session) :: 1,
+          0 :: 1
+        >> <>
+        # variable header - connect flags - keep alive
+        <<keep_alive :: 16>> <>
+        # variable header - properties - length and data
+        <<0>> <>
+        # payload - client id - length and data
+        <<String.length(client_id)::16, client_id :: binary>> <>
+        # payload - will topic - length and data
+        <<String.length(will_topic)::16, will_topic :: binary>> <>
+        # payload - will payload - length and data
+        <<String.length(will_payload)::16, will_payload :: binary>> <>
+        # payload - username - length and data
+        <<String.length(username)::16, username :: binary>> <>
+        # payload - password - length and data
+        <<String.length(password)::16, password :: binary>>
 
-      {type, data} = Packet.Decode.decode(connect)
+      assert Packet.Decode.decode(connect) == {
+               :connect,
+               %{
+                 client_id: client_id,
+                 username: username,
+                 password: password,
+                 clean_session: clean_session,
+                 keep_alive: keep_alive,
+                 protocol_level: protocol_level,
+                 will: %{
+                   qos: 1,
+                   topic: will_topic,
+                   payload: will_payload,
+                   retain: false,
+                 },
+               }
+             }
+    end
 
-      assert type == :connect
-      assert data[:client_id] == "hello world"
-      assert data[:connect_flags] == 2
-      assert data[:keep_alive] == 60
-      assert data[:protocol_level] == 5
+    test "returns :unknown if protocol is not 'MQTT'" do
+      connect =
+        # fixed header - packet type
+        <<1 :: 4, 0 :: 4>> <>
+        # fixed header - remaining length
+        <<24, 0>> <>
+        # variable header - protocol
+        <<4, "ABCD">> <>
+        # variable header - protocol level
+        <<5>> <>
+        # variable header - connect flags
+        <<2::8>> <>
+        # variable header - connect flags - keep alive
+        <<60::16>> <>
+        # variable header - properties - length and data
+        <<0, 0>> <>
+        # payload - client id - length and data
+        <<11, "hello world">>
+
+      {type, _error} = Packet.Decode.decode(connect)
+      assert type == :unknown
     end
   end
 
@@ -23,11 +114,11 @@ defmodule Packet.DecodeTest do
   describe "PUBLISH" do
     test "parses PUBLISH" do
       publish =
-        <<3::4, 0::4>> <>
-          <<15>> <>
-          <<0, 5, ?t, ?o, ?p, ?i, ?c>> <>
-          <<0>> <>
-          <<?m, ?e, ?s, ?s, ?a, ?g, ?e>>
+        <<3 :: 4, 0 :: 4>> <>
+        <<15>> <>
+        <<0, 5, ?t, ?o, ?p, ?i, ?c>> <>
+        <<0>> <>
+        <<?m, ?e, ?s, ?s, ?a, ?g, ?e>>
 
       {type, packet} = Packet.Decode.decode(publish)
 
@@ -131,4 +222,7 @@ defmodule Packet.DecodeTest do
       Packet.Decode.parse_variable_int(<<255, 255, 255, 255, 7>>)
     end
   end
+
+  defp flag(f) when f in [0, nil, false], do: 0
+  defp flag(_), do: 1
 end

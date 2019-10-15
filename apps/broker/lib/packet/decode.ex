@@ -39,22 +39,47 @@ defmodule Packet.Decode do
   #  connect
   defp parse_packet(
          <<01::4, 0::4>>,
-         <<protocol_length::16, _protocol::binary-size(protocol_length), protocol_level,
-           connect_flags, keep_alive::16, rest::binary>>
+         <<4::16, "MQTT",
+           protocol_level,
+           username::1, password::1, will_retain::1, will_qos::2, will_present::1, clean_session::1, 0::1,
+           keep_alive::16,
+           rest::binary>>
        ) do
     {props_length, _props_length_size, rest} = parse_variable_int(rest)
-    <<_properties::binary-size(props_length), rest::binary>> = rest
+    <<_properties :: binary - size(props_length), rest :: binary>> = rest
 
-    <<client_id_length::16, rest::binary>> = rest
-    <<client_id::binary-size(client_id_length)>> = rest
+    options =
+      [
+        client_id: 1,
+        will_topic: will_present,
+        will_payload: will_present,
+        username: username,
+        password: password
+      ]
+      |> Enum.filter(fn {_, present} -> present == 1 end)
+      |> Enum.map(fn {value, 1} -> value end)
+      |> Enum.zip(decode_length_prefixed(rest))
 
-    {:connect,
-     %{
-       :client_id => client_id,
-       :connect_flags => connect_flags,
-       :keep_alive => keep_alive,
-       :protocol_level => protocol_level
-     }}
+    {
+      :connect,
+      %{
+        client_id: options[:client_id],
+        username: options[:username],
+        password: options[:password],
+        protocol_level: protocol_level,
+        clean_session: clean_session == 1,
+        keep_alive: keep_alive,
+        will:
+          if will_present == 1 do
+            %{
+              topic: options[:will_topic],
+              payload: options[:will_payload],
+              qos: will_qos,
+              retain: will_retain == 1
+            }
+          end,
+      }
+    }
   end
 
   #  connack
@@ -181,5 +206,12 @@ defmodule Packet.Decode do
       1 ->
         parse_variable_int(rest, level + 1, current_byte_value * multiplier + sum)
     end
+  end
+
+  defp decode_length_prefixed(<<>>), do: []
+
+  defp decode_length_prefixed(<<length::big-integer-size(16), payload::binary>>) do
+    <<item::binary-size(length), rest::binary>> = payload
+    [item] ++ decode_length_prefixed(rest)
   end
 end
