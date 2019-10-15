@@ -20,13 +20,16 @@ defmodule Packet.Decode do
     parse(header, length, data)
   end
 
-  def decode(<<header::binary-size(1), 1::1, l1::7, 1::1, l2::7, 1::1, l3::7, 0::1, l4::7, data::binary>>) do
+  def decode(
+        <<header::binary-size(1), 1::1, l1::7, 1::1, l2::7, 1::1, l3::7, 0::1, l4::7,
+          data::binary>>
+      ) do
     length = l1 + (l2 <<< 7) + (l3 <<< 14) + (l4 <<< 21)
 
     parse(header, length, data)
   end
 
-  def parse(header, length, data) do
+  defp parse(header, length, data) do
     case data do
       <<payload::binary-size(length), _rest::binary>> -> parse_packet(header, payload)
       _ -> {:error, "could not determine packet type from: #{data}"}
@@ -34,7 +37,11 @@ defmodule Packet.Decode do
   end
 
   #  connect
-  defp parse_packet(<<01::4, 0::4>>, <<protocol_length::16, _protocol::binary-size(protocol_length), protocol_level, connect_flags, keep_alive::16, rest::binary>>) do
+  defp parse_packet(
+         <<01::4, 0::4>>,
+         <<protocol_length::16, _protocol::binary-size(protocol_length), protocol_level,
+           connect_flags, keep_alive::16, rest::binary>>
+       ) do
     {props_length, _props_length_size, rest} = parse_variable_int(rest)
     <<_properties::binary-size(props_length), rest::binary>> = rest
 
@@ -54,24 +61,6 @@ defmodule Packet.Decode do
   defp parse_packet(<<02::4, 0::4>>, _msg) do
     Logger.info("RECEIVED A CONNACK")
     {:error, "connack reasons"}
-  end
-
-  #  subscribe
-  defp parse_packet(<<08::4, 2::4>>, <<packet_id::16, rest::binary>>) do
-    {properties_length, _prop_length_size, rest} = parse_variable_int(rest)
-    <<_properties::binary-size(properties_length), topic_filter_length::16, topic_filter::binary-size(topic_filter_length), _::binary>> = rest
-
-    {:subscribe,
-     %{
-       :topic_filter => topic_filter,
-       :packet_id => packet_id
-     }}
-  end
-
-  #  suback
-  defp parse_packet(<<09::4, 0::4>>, _msg) do
-    Logger.info("RECEIVED A SUBACK")
-    {:error, "suback reasons"}
   end
 
   #  publish
@@ -114,6 +103,26 @@ defmodule Packet.Decode do
   defp parse_packet(<<07::4, 0::4>>, _msg) do
     Logger.info("RECEIVED A PUBCOMP")
     {:error, "pubcomp reasons"}
+  end
+
+  #  subscribe
+  defp parse_packet(<<08::4, 2::4>>, <<packet_id::16, rest::binary>>) do
+    {properties_length, _prop_length_size, rest} = parse_variable_int(rest)
+
+    <<_properties::binary-size(properties_length), topic_filter_length::16,
+      topic_filter::binary-size(topic_filter_length), _::binary>> = rest
+
+    {:subscribe,
+     %{
+       :topic_filter => topic_filter,
+       :packet_id => packet_id
+     }}
+  end
+
+  #  suback
+  defp parse_packet(<<09::4, 0::4>>, _msg) do
+    Logger.info("RECEIVED A SUBACK")
+    {:error, "suback reasons"}
   end
 
   #  unsubscribe
