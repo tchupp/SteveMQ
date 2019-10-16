@@ -10,6 +10,8 @@ defmodule Broker.Application do
       Supervisor.child_spec({Task, fn -> Broker.accept(port) end}, restart: :permanent)
     ]
 
+    Persistence.Mnesia.init()
+
     opts = [strategy: :one_for_one, name: Broker.Supervisor]
     Supervisor.start_link(children, opts)
   end
