@@ -114,32 +114,80 @@ defmodule Packet.DecodeTest do
   describe "PUBLISH" do
     test "parses PUBLISH" do
       publish =
-        <<3 :: 4, 0 :: 4>> <>
+        <<3 :: 4, 0 :: 1, 0 :: 2, 0 :: 1>> <>
         <<15>> <>
-        <<0, 5, ?t, ?o, ?p, ?i, ?c>> <>
+        <<0, 5, "topic">> <>
         <<0>> <>
-        <<?m, ?e, ?s, ?s, ?a, ?g, ?e>>
+        <<"message">>
 
-      {type, packet} = Packet.Decode.decode(publish)
-
-      assert type == :publish
-      assert packet[:topic] == "topic"
-      assert packet[:message] == "message"
+      assert Packet.Decode.decode(publish) == {
+               :publish_qos0,
+               %{
+                 topic: "topic",
+                 message: "message",
+                 retain: false
+               }
+             }
     end
 
     test "parses PUBLISH with extra chars" do
       publish =
-        <<3::4, 0::4>> <>
-          <<15>> <>
-          <<0, 5, ?t, ?o, ?p, ?i, ?c>> <>
-          <<0>> <>
-          <<?m, ?e, ?s, ?s, ?a, ?g, ?e, ??, ?!>>
+        <<3 :: 4, 0 :: 1, 0 :: 2, 0 :: 1>> <>
+        <<15>> <>
+        <<0, 5, "topic">> <>
+        <<0>> <>
+        <<"message?!?">>
 
-      {type, packet} = Packet.Decode.decode(publish)
+      assert Packet.Decode.decode(publish) == {
+               :publish_qos0,
+               %{
+                 topic: "topic",
+                 message: "message",
+                 retain: false
+               }
+             }
+    end
 
-      assert type == :publish
-      assert packet[:topic] == "topic"
-      assert packet[:message] == "message"
+    test "parses PUBLISH - retain as true - qos 1" do
+      publish =
+        <<3 :: 4, flag(true) :: 1, 1 :: 2, flag(true) :: 1>> <>
+        <<17>> <>
+        <<0, 5, "topic">> <>
+        <<4 :: 16>> <>
+        <<0>> <>
+        <<"message">>
+
+      assert Packet.Decode.decode(publish) == {
+               :publish_qos1,
+               %{
+                 topic: "topic",
+                 message: "message",
+                 packet_id: 4,
+                 dup: true,
+                 retain: true
+               }
+             }
+    end
+
+    test "parses PUBLISH - retain as true - qos 2" do
+      publish =
+        <<3 :: 4, flag(true) :: 1, 2 :: 2, flag(true) :: 1>> <>
+        <<17>> <>
+        <<0, 5, "topic">> <>
+        <<4 :: 16>> <>
+        <<0>> <>
+        <<"message">>
+
+      assert Packet.Decode.decode(publish) == {
+               :publish_qos2,
+               %{
+                 topic: "topic",
+                 message: "message",
+                 packet_id: 4,
+                 dup: true,
+                 retain: true
+               }
+             }
     end
   end
 

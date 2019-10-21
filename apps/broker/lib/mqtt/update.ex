@@ -19,8 +19,17 @@ defmodule Mqtt.Update do
       {:subscription_added, packet_id} ->
         {state, [Broker.Command.send_suback(packet_id)]}
 
-      {:publish, data} ->
+      {:publish_qos0, data} ->
         {state, [Broker.Command.schedule_publish(data)]}
+
+      {:publish_qos1, data} ->
+        {
+          state,
+          [
+            Broker.Command.send_puback(data[:packet_id]),
+            Broker.Command.schedule_publish(data)
+          ]
+        }
 
       {:disconnect} ->
         {state, [Broker.Command.log_disconnect()]}
@@ -38,7 +47,7 @@ defmodule Mqtt.Update do
         {state, [Broker.Command.disconnect(socket, error)]}
 
       _ ->
-        {{socket, client_id}, []}
+        {state, []}
     end
   end
 end
