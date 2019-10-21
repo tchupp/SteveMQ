@@ -24,6 +24,14 @@ defmodule Broker.Command do
     end
   end
 
+  def send_puback(packet_id) do
+    fn {socket, _} ->
+      Logger.info("Sending PUBACK. packet_id: #{packet_id}")
+      :gen_tcp.send(socket, Packet.Encode.puback(packet_id))
+      {:none}
+    end
+  end
+
   def add_subscription(%{topic_filter: topic_filter, packet_id: packet_id}) do
     fn {_, client_id} ->
       Logger.info("received SUBSCRIBE to #{topic_filter}")
@@ -72,15 +80,16 @@ defmodule Broker.Command do
 
   def log_disconnect() do
     fn {_, client_id} ->
-      Logger.info("received DISCONNECT from client id: #{client_id}")
+      Logger.info("received DISCONNECT. client id: #{client_id}")
       {:none}
     end
   end
 
   def send_pingresp() do
-    fn {socket, _} ->
-      Logger.info("sending PINGRESP")
+    fn {socket, client_id} ->
+      Logger.info("sending PINGRESP. client id: #{client_id}")
       :gen_tcp.send(socket, Packet.Encode.pingresp())
+      {:none}
     end
   end
 

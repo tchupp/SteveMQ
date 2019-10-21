@@ -88,9 +88,9 @@ defmodule Packet.Decode do
     {:error, "connack reasons"}
   end
 
-  #  publish
+  #  publish - qos 0
   defp parse_packet(
-         <<03::4, _dup::1, _qos::integer-size(2), _retain::1>>,
+         <<03::4, dup::1, 0::2, retain::1>>,
          <<
            topic_length::big-integer-size(16),
            topic::binary-size(topic_length),
@@ -99,11 +99,43 @@ defmodule Packet.Decode do
        ) do
     {_properties_length, _props_length_size, message} = parse_variable_int(rest)
 
-    {:publish,
-     %{
-       :topic => topic,
-       :message => message
-     }}
+    {
+      :publish_qos0,
+      %{
+        topic: topic,
+        message: message,
+        retain: retain == 1
+      }
+    }
+  end
+
+  #  publish - qos 1/2
+  defp parse_packet(
+         <<03::4, dup::1, qos::integer-size(2), retain::1>>,
+         <<
+           topic_length::big-integer-size(16),
+           topic::binary-size(topic_length),
+           rest::binary
+         >>
+       ) do
+    <<packet_id :: 16, rest :: binary>> = rest
+    {_properties_length, _props_length_size, message} = parse_variable_int(rest)
+
+    publish_type =
+      case qos do
+        1 -> :publish_qos1
+        2 -> :publish_qos2
+      end
+    {
+      publish_type,
+      %{
+        topic: topic,
+        message: message,
+        packet_id: packet_id,
+        dup: dup == 1,
+        retain: retain == 1
+      }
+    }
   end
 
   #  puback

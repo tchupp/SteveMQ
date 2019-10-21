@@ -9,6 +9,12 @@ defmodule Packet.EncodeTest do
     assert Packet.Encode.connack(:error) == <<32, 3, 0, 0, 131>>
   end
 
+  test "encodes PUBACK with packet id" do
+    packet_id = 123
+
+    assert Packet.Encode.puback(packet_id) == <<64, 4, packet_id::16, 0, 0>>
+  end
+
   test "encodes SUBACK" do
     packet_id = 45
     suback = Packet.Encode.suback(packet_id)

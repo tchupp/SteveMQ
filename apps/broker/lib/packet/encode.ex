@@ -2,11 +2,20 @@ defmodule Packet.Encode do
   require Logger
 
   def connack() do
-    <<32, 3, 0, 0, 0>>
+    <<2::4, 0::4>> <> <<3, 0, 0, 0>>
   end
 
   def connack(:error) do
-    <<32, 3, 0, 0, 131>>
+    <<2::4, 0::4>> <> <<3, 0, 0, 131>>
+  end
+
+  def puback(packet_id) do
+    packet_type = <<4::4, 0::4>>
+    remaining_length = <<4::8>>
+    reason_code = <<0::8>>
+    property_length = <<0::8>>
+
+    packet_type <> remaining_length <> <<packet_id::16>> <> reason_code <> property_length
   end
 
   def suback(packet_id) do
