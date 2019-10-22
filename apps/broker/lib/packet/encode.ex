@@ -1,10 +1,6 @@
 defmodule Packet.Encode do
   require Logger
 
-  def connack() do
-    <<2::4, 0::4>> <> <<3, 0, 0, 0>>
-  end
-
   def connack(:error) do
     <<2::4, 0::4>> <> <<3, 0, 0, 131>>
   end
@@ -16,6 +12,13 @@ defmodule Packet.Encode do
     property_length = <<0::8>>
 
     packet_type <> remaining_length <> <<packet_id::16>> <> reason_code <> property_length
+  end
+
+  def connack(session_present?: session_present?) do
+    case session_present? do
+      true -> <<32, 3, 1, 0, 0>>
+      false -> <<32, 3, 0, 0, 0>>
+    end
   end
 
   def suback(packet_id) do
