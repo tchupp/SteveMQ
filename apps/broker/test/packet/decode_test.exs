@@ -89,9 +89,9 @@ defmodule Packet.DecodeTest do
         # fixed header - packet type
         <<1 :: 4, 0 :: 4>> <>
         # fixed header - remaining length
-        <<24, 0>> <>
+        <<24>> <>
         # variable header - protocol
-        <<4, "ABCD">> <>
+        <<4 :: 16, "ABCD">> <>
         # variable header - protocol level
         <<5>> <>
         # variable header - connect flags
@@ -114,9 +114,12 @@ defmodule Packet.DecodeTest do
   describe "PUBLISH" do
     test "parses PUBLISH" do
       publish =
+        # fixed header - packet type, flags
         <<3 :: 4, 0 :: 1, 0 :: 2, 0 :: 1>> <>
+        # fixed header - remaining length
         <<15>> <>
-        <<0, 5, "topic">> <>
+        # variable header - topic - length and data
+        <<5 :: 16, "topic">> <>
         <<0>> <>
         <<"message">>
 
@@ -132,10 +135,15 @@ defmodule Packet.DecodeTest do
 
     test "parses PUBLISH with extra chars" do
       publish =
+        # fixed header - packet type, flags
         <<3 :: 4, 0 :: 1, 0 :: 2, 0 :: 1>> <>
+        # fixed header - remaining length
         <<15>> <>
-        <<0, 5, "topic">> <>
+        # variable header - topic - length and data
+        <<5 :: 16, "topic">> <>
+        # payload - properties - length and data
         <<0>> <>
+        # payload - message body
         <<"message?!?">>
 
       assert Packet.Decode.decode(publish) == {
@@ -150,11 +158,17 @@ defmodule Packet.DecodeTest do
 
     test "parses PUBLISH - retain as true - qos 1" do
       publish =
-        <<3 :: 4, flag(true) :: 1, 1 :: 2, flag(true) :: 1>> <>
+        # fixed header - packet type, flags
+        <<3 :: 4, flag(false) :: 1, 1 :: 2, flag(true) :: 1>> <>
+        # fixed header - remaining length
         <<17>> <>
-        <<0, 5, "topic">> <>
-        <<4 :: 16>> <>
+        # variable header - topic - length and data
+        <<5 :: 16, "topic">> <>
+        # variable header - packet id
+        <<17 :: 16>> <>
+        # payload - properties - length and data
         <<0>> <>
+        # payload - message body
         <<"message">>
 
       assert Packet.Decode.decode(publish) == {
@@ -162,8 +176,8 @@ defmodule Packet.DecodeTest do
                %{
                  topic: "topic",
                  message: "message",
-                 packet_id: 4,
-                 dup: true,
+                 packet_id: 17,
+                 dup: false,
                  retain: true
                }
              }
@@ -171,11 +185,17 @@ defmodule Packet.DecodeTest do
 
     test "parses PUBLISH - retain as true - qos 2" do
       publish =
+        # fixed header - packet type, flags
         <<3 :: 4, flag(true) :: 1, 2 :: 2, flag(true) :: 1>> <>
+        # fixed header - remaining length
         <<17>> <>
-        <<0, 5, "topic">> <>
+        # variable header - topic - length and data
+        <<5 :: 16, "topic">> <>
+        # variable header - packet id
         <<4 :: 16>> <>
+        # payload - properties - length and data
         <<0>> <>
+        # payload - message body
         <<"message">>
 
       assert Packet.Decode.decode(publish) == {
