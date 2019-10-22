@@ -209,6 +209,25 @@ defmodule Packet.DecodeTest do
                }
              }
     end
+
+    test "fails to parse PUBLISH - qos 3" do
+      publish =
+        # fixed header - packet type, flags
+        <<3 :: 4, flag(true) :: 1, 3 :: 2, flag(true) :: 1>> <>
+        # fixed header - remaining length
+        <<17>> <>
+        # variable header - topic - length and data
+        <<5 :: 16, "topic">> <>
+        # variable header - packet id
+        <<4 :: 16>> <>
+        # payload - properties - length and data
+        <<0>> <>
+        # payload - message body
+        <<"message">>
+
+      {type, _error} = Packet.Decode.decode(publish)
+      assert type == :unknown
+    end
   end
 
   describe "PUBACK" do

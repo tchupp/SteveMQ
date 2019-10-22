@@ -89,7 +89,7 @@ defmodule Packet.Decode do
 
   #  publish - qos 0
   defp parse_packet(
-         <<03::4, dup::1, 0::2, retain::1>>,
+         <<3::4, 0::1, 0::2, retain::1>>,
          <<
            topic_length::big-integer-size(16),
            topic::binary-size(topic_length),
@@ -110,7 +110,7 @@ defmodule Packet.Decode do
 
   #  publish - qos 1/2
   defp parse_packet(
-         <<03::4, dup::1, qos::integer-size(2), retain::1>>,
+         <<3::4, dup::1, qos::integer-size(2), retain::1>>,
          <<
            topic_length::big-integer-size(16),
            topic::binary-size(topic_length),
@@ -124,6 +124,7 @@ defmodule Packet.Decode do
       case qos do
         1 -> :publish_qos1
         2 -> :publish_qos2
+        _ -> :unknown
       end
     {
       publish_type,
