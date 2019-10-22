@@ -4,7 +4,7 @@ defmodule Persistence.Mnesia do
     :mnesia.create_schema([node()])
     :mnesia.start()
 
-    :mnesia.create_table(Session, [attributes: [:client_id, :expiry]])
+    :mnesia.create_table(Session, [disc_copies: [node()], attributes: [:client_id, :expiry]])
   end
 
 end

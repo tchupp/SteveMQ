@@ -10,16 +10,38 @@ defmodule Broker.Command do
 
   def register_clientid(client_id, pid) do
     fn _ ->
-      Logger.info("Registering clientId: #{client_id}")
+      Logger.debug("Registering clientId: #{client_id}")
       Broker.Connection.Registry.register(Broker.Connection.Registry, client_id, pid)
       {:none}
     end
   end
 
-  def send_connack() do
+  def start_new_session(client_id) do
+    fn _ ->
+      Logger.debug("Starting new session for #{client_id}")
+      Broker.SessionRepo.new_session(client_id, :never)
+      {:session_started, session_present?: false}
+    end
+  end
+
+  def continue_session(client_id) do
+    fn _ ->
+      Logger.debug("Continuing session for #{client_id}")
+      session = Broker.SessionRepo.get_session(client_id)
+      case session do
+        [] ->
+          Logger.debug("Found no session for #{client_id}")
+          Broker.SessionRepo.new_session(client_id, :never)
+          {:session_started, session_present?: false}
+        _ -> {:session_started, session_present?: true}
+      end
+    end
+  end
+
+  def send_connack(session_present?: session_present?) do
     fn {socket, _} ->
-      Logger.info("Sending CONNACK")
-      :gen_tcp.send(socket, Packet.Encode.connack())
+      Logger.info("Sending CONNACK, session present: #{session_present?}")
+      :gen_tcp.send(socket, Packet.Encode.connack(session_present?: session_present?))
       {:none}
     end
   end

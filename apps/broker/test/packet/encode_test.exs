@@ -2,7 +2,8 @@ defmodule Packet.EncodeTest do
   use ExUnit.Case
 
   test "encodes a basic CONNACK packet" do
-    assert Packet.Encode.connack() == <<32, 3, 0, 0, 0>>
+    assert Packet.Encode.connack(session_present?: false) == <<32, 3, 0, 0, 0>>
+    assert Packet.Encode.connack(session_present?: true) == <<32, 3, 1, 0, 0>>
   end
 
   test "encodes CONNACK with error codes" do

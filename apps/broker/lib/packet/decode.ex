@@ -47,7 +47,6 @@ defmodule Packet.Decode do
        ) do
     {props_length, _props_length_size, rest} = parse_variable_int(rest)
     <<_properties :: binary - size(props_length), rest :: binary>> = rest
-
     options =
       [
         client_id: 1,
