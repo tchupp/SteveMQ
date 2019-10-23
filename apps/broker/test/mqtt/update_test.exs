@@ -1,5 +1,6 @@
 defmodule Mqtt.UpdateTest do
   use ExUnit.Case
+  import Mqtt.Update
   @default_state {:a_socket, ""}
 
   test "pingreq returns pingresp command" do
@@ -15,7 +16,7 @@ defmodule Mqtt.UpdateTest do
     {_, commands} = Mqtt.Update.update(connect, @default_state)
 
     assert Enum.at(commands, 0) == Broker.Command.register_clientid("qwerty", self())
-    assert Enum.at(commands, 1) == Broker.Command.start_new_session("qwerty")
+    assert Enum.at(commands, 1) == Broker.Command.start_new_session("qwerty") <|> &Broker.Command.send_connack/1
   end
 
   test "on connect without clean session, register client id and continue session" do
@@ -23,7 +24,7 @@ defmodule Mqtt.UpdateTest do
     {_, commands} = Mqtt.Update.update(connect, @default_state)
 
     assert Enum.at(commands, 0) == Broker.Command.register_clientid("qwerty", self())
-    assert Enum.at(commands, 1) == Broker.Command.continue_session("qwerty")
+    assert Enum.at(commands, 1) == Broker.Command.continue_session("qwerty") <|> &Broker.Command.send_connack/1
   end
 
 end
