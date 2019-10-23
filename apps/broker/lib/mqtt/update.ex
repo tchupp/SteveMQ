@@ -1,17 +1,7 @@
 defmodule Mqtt.Update do
   require Logger
+
   # update(event, state) -> state, [command]
-
-  def x <|> y, do: compose(y, x)
-
-  def compose(f, g) when is_function(g) do
-    fn arg -> compose(f, g.(arg)).(arg) end
-  end
-
-  def compose(f, arg) do
-    f.(arg)
-  end
-
   def update(event, state) do
     {socket, client_id} = state
 
@@ -25,7 +15,7 @@ defmodule Mqtt.Update do
             case data[:clean_session] do
               true -> Broker.Command.start_new_session(client_id)
               false -> Broker.Command.continue_session(client_id)
-            end
+            end <|> &Broker.Command.send_connack/1
           ]
         }
 
@@ -69,4 +59,15 @@ defmodule Mqtt.Update do
         {state, []}
     end
   end
+
+  def left <|> right, do: compose(right, left)
+
+  defp compose(f, g) when is_function(g) do
+    fn arg -> compose(f, g.(arg)).(arg) end
+  end
+
+  defp compose(f, arg) do
+    f.(arg)
+  end
+
 end

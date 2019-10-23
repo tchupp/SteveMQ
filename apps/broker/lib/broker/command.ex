@@ -38,7 +38,7 @@ defmodule Broker.Command do
     end
   end
 
-  def send_connack(session_present?: session_present?) do
+  def send_connack({_, session_present?: session_present?}) do
     fn {socket, _} ->
       Logger.info("Sending CONNACK, session present: #{session_present?}")
       :gen_tcp.send(socket, Packet.Encode.connack(session_present?: session_present?))
