@@ -27,4 +27,13 @@ defmodule Mqtt.UpdateTest do
     assert Enum.at(commands, 1) == Broker.Command.continue_session("qwerty") <|> &Broker.Command.send_connack/1
   end
 
+  test "compose operator composes functions properly sum/div" do
+    sum = fn x1 -> fn y -> x1 + y end end
+    div = fn x2 -> fn y -> x2 / y end end
+
+    sum_then_div = sum.(12) <|> div
+
+    assert sum_then_div.(4) == 4
+  end
+
 end
