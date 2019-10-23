@@ -3,24 +3,20 @@ defmodule Mqtt.Update do
 
   # update(event, state) -> state, [command]
   def update(event, state) do
-    {socket, client_id} = state
+    {socket, _client_id} = state
 
     case event do
-      {:connect, data} ->
-        client_id = data[:client_id]
+      {:connect, %{client_id: client_id, clean_session: clean_session}} ->
         {
-          {socket, data[:client_id]},
+          {socket, client_id},
           [
             Broker.Command.register_clientid(client_id, self()),
-            case data[:clean_session] do
+            case clean_session do
               true -> Broker.Command.start_new_session(client_id)
               false -> Broker.Command.continue_session(client_id)
             end <|> &Broker.Command.send_connack/1
           ]
         }
-
-      {:session_started, session_present?} ->
-        {state, [Broker.Command.send_connack(session_present?)]}
 
       {:subscribe, data} ->
         {state, [Broker.Command.add_subscription(data)]}
@@ -60,10 +56,10 @@ defmodule Mqtt.Update do
     end
   end
 
-  def left <|> right, do: compose(right, left)
+  def left <|> right, do: compose(left, right)
 
   defp compose(f, g) when is_function(g) do
-    fn arg -> compose(f, g.(arg)).(arg) end
+    fn arg -> compose(g, f.(arg)).(arg) end
   end
 
   defp compose(f, arg) do
