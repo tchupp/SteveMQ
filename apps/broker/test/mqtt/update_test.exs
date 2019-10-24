@@ -12,7 +12,7 @@ defmodule Mqtt.UpdateTest do
   end
 
   test "on connect with clean session, register client id and start a session" do
-    connect = {:connect, %{client_id: "qwerty", clean_session: true}}
+    connect = {:connect, %Packet.Connect{client_id: "qwerty", clean_session: true, protocol_level: 5, keep_alive: 60}}
     {_, commands} = Mqtt.Update.update(connect, @default_state)
 
     assert Enum.at(commands, 0) == Broker.Command.register_clientid("qwerty", self())
@@ -20,7 +20,7 @@ defmodule Mqtt.UpdateTest do
   end
 
   test "on connect without clean session, register client id and continue session" do
-    connect = {:connect, %{client_id: "qwerty", clean_session: false}}
+    connect = {:connect, %Packet.Connect{client_id: "qwerty", clean_session: false, protocol_level: 5, keep_alive: 60}}
     {_, commands} = Mqtt.Update.update(connect, @default_state)
 
     assert Enum.at(commands, 0) == Broker.Command.register_clientid("qwerty", self())

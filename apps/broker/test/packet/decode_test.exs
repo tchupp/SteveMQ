@@ -14,7 +14,7 @@ defmodule Packet.DecodeTest do
       client_id = "hello world"
 
       will_topic = "if you will it"
-      will_payload = "it is no dream"
+      will_message = "it is no dream"
 
       username = "joe dirt"
       password = "paul rudd"
@@ -27,7 +27,7 @@ defmodule Packet.DecodeTest do
         1 + # properties size
         2 + String.length(client_id) +
         2 + String.length(will_topic) +
-        2 + String.length(will_payload) +
+        2 + String.length(will_message) +
         2 + String.length(username) +
         2 + String.length(password)
 
@@ -59,27 +59,27 @@ defmodule Packet.DecodeTest do
         # payload - will topic - length and data
         <<String.length(will_topic)::16, will_topic :: binary>> <>
         # payload - will payload - length and data
-        <<String.length(will_payload)::16, will_payload :: binary>> <>
+        <<String.length(will_message)::16, will_message :: binary>> <>
         # payload - username - length and data
         <<String.length(username)::16, username :: binary>> <>
         # payload - password - length and data
         <<String.length(password)::16, password :: binary>>
 
-      assert Packet.Decode.decode(connect) == {
+      assert Packet.decode(connect) == {
                :connect,
-               %{
+               %Packet.Connect{
                  client_id: client_id,
                  username: username,
                  password: password,
                  clean_session: clean_session,
                  keep_alive: keep_alive,
                  protocol_level: protocol_level,
-                 will: %{
+                 will: %Packet.Publish{
                    qos: 1,
                    topic: will_topic,
-                   payload: will_payload,
-                   retain: false,
-                 },
+                   message: will_message,
+                   retain: false
+                 }
                }
              }
     end
@@ -103,7 +103,7 @@ defmodule Packet.DecodeTest do
         # payload - client id - length and data
         <<11, "hello world">>
 
-      {type, _error} = Packet.Decode.decode(connect)
+      {type, _error} = Packet.decode(connect)
       assert type == :unknown
     end
   end
@@ -123,7 +123,7 @@ defmodule Packet.DecodeTest do
         <<0>> <>
         <<"message">>
 
-      assert Packet.Decode.decode(publish) == {
+      assert Packet.decode(publish) == {
                :publish_qos0,
                %{
                  topic: "topic",
@@ -146,7 +146,7 @@ defmodule Packet.DecodeTest do
         # payload - message body
         <<"message?!?">>
 
-      assert Packet.Decode.decode(publish) == {
+      assert Packet.decode(publish) == {
                :publish_qos0,
                %{
                  topic: "topic",
@@ -171,7 +171,7 @@ defmodule Packet.DecodeTest do
         # payload - message body
         <<"message">>
 
-      assert Packet.Decode.decode(publish) == {
+      assert Packet.decode(publish) == {
                :publish_qos1,
                %{
                  topic: "topic",
@@ -198,7 +198,7 @@ defmodule Packet.DecodeTest do
         # payload - message body
         <<"message">>
 
-      assert Packet.Decode.decode(publish) == {
+      assert Packet.decode(publish) == {
                :publish_qos2,
                %{
                  topic: "topic",
@@ -225,7 +225,7 @@ defmodule Packet.DecodeTest do
         # payload - message body
         <<"message">>
 
-      {type, _error} = Packet.Decode.decode(publish)
+      {type, _error} = Packet.decode(publish)
       assert type == :unknown
     end
   end
@@ -251,7 +251,7 @@ defmodule Packet.DecodeTest do
           <<14, packet_id::16, 0, 0, 9>> <>
           <<?t, ?e, ?s, ?t, ?T, ?o, ?p, ?i, ?c, 0>>
 
-      {type, packet} = Packet.Decode.decode(subscribe)
+      {type, packet} = Packet.decode(subscribe)
 
       assert type == :subscribe
       assert packet[:topic_filter] == "testTopic"
@@ -279,34 +279,34 @@ defmodule Packet.DecodeTest do
 
   describe "ERROR" do
     test "returns error for unrecognized message types" do
-      {type, _} = Packet.Decode.decode(<<0, 2, 0, 0>>)
+      {type, _} = Packet.decode(<<0, 2, 0, 0>>)
       assert type == :unknown
     end
   end
 
   test "can parse one length variable length ints" do
-    assert Packet.Decode.parse_variable_int(<<0, 0>>) == {0, 1, <<0>>}
-    assert Packet.Decode.parse_variable_int(<<127, 0>>) == {127, 1, <<0>>}
+    assert Packet.Decode.variable_length_prefixed(<<0, 0>>) == {0, 1, <<0>>}
+    assert Packet.Decode.variable_length_prefixed(<<127, 0>>) == {127, 1, <<0>>}
   end
 
   test "can parse two length variable length ints" do
-    assert Packet.Decode.parse_variable_int(<<128, 1, 0>>) == {128, 2, <<0>>}
-    assert Packet.Decode.parse_variable_int(<<255, 127, 0>>) == {16_383, 2, <<0>>}
+    assert Packet.Decode.variable_length_prefixed(<<128, 1, 0>>) == {128, 2, <<0>>}
+    assert Packet.Decode.variable_length_prefixed(<<255, 127, 0>>) == {16_383, 2, <<0>>}
   end
 
   test "can parse three length variable length ints" do
-    assert Packet.Decode.parse_variable_int(<<128, 128, 1, 0>>) == {16_384, 3, <<0>>}
-    assert Packet.Decode.parse_variable_int(<<255, 255, 127, 0>>) == {2_097_151, 3, <<0>>}
+    assert Packet.Decode.variable_length_prefixed(<<128, 128, 1, 0>>) == {16_384, 3, <<0>>}
+    assert Packet.Decode.variable_length_prefixed(<<255, 255, 127, 0>>) == {2_097_151, 3, <<0>>}
   end
 
   test "can parse four length variable length ints" do
-    assert Packet.Decode.parse_variable_int(<<128, 128, 128, 1, 0>>) == {2_097_152, 4, <<0>>}
-    assert Packet.Decode.parse_variable_int(<<255, 255, 255, 127, 0>>) == {268_435_455, 4, <<0>>}
+    assert Packet.Decode.variable_length_prefixed(<<128, 128, 128, 1, 0>>) == {2_097_152, 4, <<0>>}
+    assert Packet.Decode.variable_length_prefixed(<<255, 255, 255, 127, 0>>) == {268_435_455, 4, <<0>>}
   end
 
   test "max variable length bytes is 4" do
     assert_raise RuntimeError, ~r/error/, fn ->
-      Packet.Decode.parse_variable_int(<<255, 255, 255, 255, 7>>)
+      Packet.Decode.variable_length_prefixed(<<255, 255, 255, 255, 7>>)
     end
   end
 
