@@ -36,6 +36,14 @@ defmodule Packet.EncodeTest do
     assert Packet.Encode.puback(packet_id) == <<64, 4, packet_id::16, 0, 0>>
   end
 
+  test "encodes SUBSCRIBE" do
+    assert Packet.Encode.subscribe(47, "a/topic") ==
+             <<8::4, 2::4>> <> <<12>> <> # fixed header
+             <<0, 47>> <> # packet id
+             <<0>> <> # properties length
+             <<0, 7, "a/topic">> #payload
+  end
+
   test "encodes SUBACK" do
     packet_id = 45
     suback = Packet.Encode.suback(packet_id)
