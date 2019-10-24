@@ -1,0 +1,28 @@
+defmodule BigTests.PubSubTest do
+  use ExUnit.Case
+
+  setup do
+    Application.stop(:broker)
+    :ok = Application.start(:broker)
+  end
+
+  test "happy case sub/pub qos0" do
+    pid = Task.async(fn ->
+      Client.subscribe_1msg("clientId", "test/topic", 0)
+    end)
+
+    :ok = Client.publish("clientId", "test/topic", 0)
+
+    Task.await(pid)
+  end
+
+  test "how tasks work" do
+    asd = Task.async(fn ->
+      5
+    end) |> Task.await()
+
+    assert asd == 3
+  end
+
+
+end
