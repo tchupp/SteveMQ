@@ -6,7 +6,7 @@ defmodule Mqtt.Update do
     {socket, _client_id} = state
 
     case event do
-      {:connect, %{client_id: client_id, clean_session: clean_session}} ->
+      {:connect, %Packet.Connect{client_id: client_id, clean_session: clean_session} = packet} ->
         {
           {socket, client_id},
           [

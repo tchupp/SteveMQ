@@ -30,7 +30,7 @@ defmodule Broker.Connection do
 
     case result do
       {:ok, raw_packet} ->
-        packet = Packet.Decode.decode(raw_packet)
+        packet = Packet.decode(raw_packet)
         :ok = fire_event_external(server, packet)
         read_loop(server, socket)
 
