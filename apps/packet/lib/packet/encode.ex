@@ -34,6 +34,16 @@ defmodule Packet.Encode do
     end
   end
 
+  def subscribe(packet_id, topic_filter) do
+    packet_type = <<8::4, 2::4>>
+    filter_utf8 = utf8(topic_filter)
+    remaining_length = <<(byte_size(filter_utf8) + 3)>>
+
+    packet_type <> remaining_length <>
+    <<packet_id::16, 0>> <>
+    filter_utf8
+  end
+
   def suback(packet_id) do
     packet_type = <<144>>
     remaining_length = <<3>>
