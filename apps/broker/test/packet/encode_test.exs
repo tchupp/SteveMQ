@@ -1,6 +1,26 @@
 defmodule Packet.EncodeTest do
   use ExUnit.Case
 
+  test "encodes CONNECT with client id and clean" do
+    assert Packet.Encode.connect("samuel-l-jackson", false) ==
+             <<16, 29>> <> # fixed header
+             <<0, 4, "MQTT">> <> # protocol
+             <<5>> <> # protocol level
+             <<2>> <> # connect flags
+             <<0, 60>> <> # keep alive
+             <<0>> <> # property length
+             <<0, 16, "samuel-l-jackson">> # payload: client id
+
+  end
+
+  test "sets clean start flag when encoding CONNECT" do
+    clean_start_connect = Packet.Encode.connect("brian-boitano", true)
+    dirty_start_connect = Packet.Encode.connect("kristi-yamaguchi", false)
+
+    assert :binary.at(dirty_start_connect, 12) == 0
+    assert :binary.at(clean_start_connect, 12) == 2
+  end
+
   test "encodes a basic CONNACK packet" do
     assert Packet.Encode.connack(session_present?: false) == <<32, 3, 0, 0, 0>>
     assert Packet.Encode.connack(session_present?: true) == <<32, 3, 1, 0, 0>>
