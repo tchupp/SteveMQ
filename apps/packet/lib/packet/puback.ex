@@ -14,7 +14,7 @@ defmodule Packet.Puback do
     {:puback, "puback reasons"}
   end
 
-  def decode(<<header :: 8>>, <<rest :: 24>>) do
+  def decode(<<_header :: 8>>, <<rest :: 24>>) do
     {:unknown, ""}
   end
 

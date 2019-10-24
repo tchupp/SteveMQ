@@ -6,7 +6,7 @@ defmodule Packet.EncodeTest do
              <<16, 29>> <> # fixed header
              <<0, 4, "MQTT">> <> # protocol
              <<5>> <> # protocol level
-             <<2>> <> # connect flags
+             <<0>> <> # connect flags
              <<0, 60>> <> # keep alive
              <<0>> <> # property length
              <<0, 16, "samuel-l-jackson">> # payload: client id
