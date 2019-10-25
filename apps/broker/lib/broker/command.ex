@@ -28,12 +28,15 @@ defmodule Broker.Command do
     fn _ ->
       Logger.debug("Continuing session for #{client_id}")
       session = Broker.SessionRepo.get_session(client_id)
+
       case session do
         [] ->
           Logger.debug("Found no session for #{client_id}")
           Broker.SessionRepo.new_session(client_id, :never)
           {:session_started, session_present?: false}
-        _ -> {:session_started, session_present?: true}
+
+        _ ->
+          {:session_started, session_present?: true}
       end
     end
   end

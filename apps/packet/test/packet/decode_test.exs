@@ -19,51 +19,56 @@ defmodule Packet.DecodeTest do
       username = "joe dirt"
       password = "paul rudd"
 
+      # protocol size
+      # protocol level size
+      # connect flags size
+      # keep alive size
+      # properties size
       packet_length =
-        6 + # protocol size
-        1 + # protocol level size
-        1 + # connect flags size
-        2 + # keep alive size
-        1 + # properties size
-        2 + String.length(client_id) +
-        2 + String.length(will_topic) +
-        2 + String.length(will_message) +
-        2 + String.length(username) +
-        2 + String.length(password)
+        6 +
+          1 +
+          1 +
+          2 +
+          1 +
+          2 + String.length(client_id) +
+          2 + String.length(will_topic) +
+          2 + String.length(will_message) +
+          2 + String.length(username) +
+          2 + String.length(password)
 
+      # fixed header - packet type
+      # fixed header - remaining length
+      # variable header - protocol
+      # variable header - protocol level
+      # variable header - connect flags
+      # variable header - connect flags - keep alive
+      # variable header - properties - length and data
+      # payload - client id - length and data
+      # payload - will topic - length and data
+      # payload - will payload - length and data
+      # payload - username - length and data
+      # payload - password - length and data
       connect =
-        # fixed header - packet type
-        <<1 :: 4, 0 :: 4>> <>
-        # fixed header - remaining length
-        <<packet_length>> <>
-        # variable header - protocol
-        <<4::16, "MQTT">> <>
-        # variable header - protocol level
-        <<5>> <>
-        # variable header - connect flags
-        <<
-          flag(username) :: 1,
-          flag(password) :: 1,
-          flag(will_retain) :: 1,
-          will_qos :: 2,
-          flag(will_present) :: 1,
-          flag(clean_session) :: 1,
-          0 :: 1
-        >> <>
-        # variable header - connect flags - keep alive
-        <<keep_alive :: 16>> <>
-        # variable header - properties - length and data
-        <<0>> <>
-        # payload - client id - length and data
-        <<String.length(client_id)::16, client_id :: binary>> <>
-        # payload - will topic - length and data
-        <<String.length(will_topic)::16, will_topic :: binary>> <>
-        # payload - will payload - length and data
-        <<String.length(will_message)::16, will_message :: binary>> <>
-        # payload - username - length and data
-        <<String.length(username)::16, username :: binary>> <>
-        # payload - password - length and data
-        <<String.length(password)::16, password :: binary>>
+        <<1::4, 0::4>> <>
+          <<packet_length>> <>
+          <<4::16, "MQTT">> <>
+          <<5>> <>
+          <<
+            flag(username)::1,
+            flag(password)::1,
+            flag(will_retain)::1,
+            will_qos::2,
+            flag(will_present)::1,
+            flag(clean_session)::1,
+            0::1
+          >> <>
+          <<keep_alive::16>> <>
+          <<0>> <>
+          <<String.length(client_id)::16, client_id::binary>> <>
+          <<String.length(will_topic)::16, will_topic::binary>> <>
+          <<String.length(will_message)::16, will_message::binary>> <>
+          <<String.length(username)::16, username::binary>> <>
+          <<String.length(password)::16, password::binary>>
 
       assert Packet.decode(connect) == {
                :connect,
@@ -85,23 +90,23 @@ defmodule Packet.DecodeTest do
     end
 
     test "returns :unknown if protocol is not 'MQTT'" do
+      # fixed header - packet type
+      # fixed header - remaining length
+      # variable header - protocol
+      # variable header - protocol level
+      # variable header - connect flags
+      # variable header - connect flags - keep alive
+      # variable header - properties - length and data
+      # payload - client id - length and data
       connect =
-        # fixed header - packet type
-        <<1 :: 4, 0 :: 4>> <>
-        # fixed header - remaining length
-        <<24>> <>
-        # variable header - protocol
-        <<4 :: 16, "ABCD">> <>
-        # variable header - protocol level
-        <<5>> <>
-        # variable header - connect flags
-        <<2::8>> <>
-        # variable header - connect flags - keep alive
-        <<60::16>> <>
-        # variable header - properties - length and data
-        <<0, 0>> <>
-        # payload - client id - length and data
-        <<11, "hello world">>
+        <<1::4, 0::4>> <>
+          <<24>> <>
+          <<4::16, "ABCD">> <>
+          <<5>> <>
+          <<2::8>> <>
+          <<60::16>> <>
+          <<0, 0>> <>
+          <<11, "hello world">>
 
       {type, _error} = Packet.decode(connect)
       assert type == :unknown
@@ -113,15 +118,15 @@ defmodule Packet.DecodeTest do
 
   describe "PUBLISH" do
     test "parses PUBLISH" do
+      # fixed header - packet type, flags
+      # fixed header - remaining length
+      # variable header - topic - length and data
       publish =
-        # fixed header - packet type, flags
-        <<3 :: 4, 0 :: 1, 0 :: 2, 0 :: 1>> <>
-        # fixed header - remaining length
-        <<15>> <>
-        # variable header - topic - length and data
-        <<5 :: 16, "topic">> <>
-        <<0>> <>
-        <<"message">>
+        <<3::4, 0::1, 0::2, 0::1>> <>
+          <<15>> <>
+          <<5::16, "topic">> <>
+          <<0>> <>
+          <<"message">>
 
       assert Packet.decode(publish) == {
                :publish_qos0,
@@ -134,17 +139,17 @@ defmodule Packet.DecodeTest do
     end
 
     test "parses PUBLISH with extra chars" do
+      # fixed header - packet type, flags
+      # fixed header - remaining length
+      # variable header - topic - length and data
+      # payload - properties - length and data
+      # payload - message body
       publish =
-        # fixed header - packet type, flags
-        <<3 :: 4, 0 :: 1, 0 :: 2, 0 :: 1>> <>
-        # fixed header - remaining length
-        <<15>> <>
-        # variable header - topic - length and data
-        <<5 :: 16, "topic">> <>
-        # payload - properties - length and data
-        <<0>> <>
-        # payload - message body
-        <<"message?!?">>
+        <<3::4, 0::1, 0::2, 0::1>> <>
+          <<15>> <>
+          <<5::16, "topic">> <>
+          <<0>> <>
+          <<"message?!?">>
 
       assert Packet.decode(publish) == {
                :publish_qos0,
@@ -157,19 +162,19 @@ defmodule Packet.DecodeTest do
     end
 
     test "parses PUBLISH - retain as true - qos 1" do
+      # fixed header - packet type, flags
+      # fixed header - remaining length
+      # variable header - topic - length and data
+      # variable header - packet id
+      # payload - properties - length and data
+      # payload - message body
       publish =
-        # fixed header - packet type, flags
-        <<3 :: 4, flag(false) :: 1, 1 :: 2, flag(true) :: 1>> <>
-        # fixed header - remaining length
-        <<17>> <>
-        # variable header - topic - length and data
-        <<5 :: 16, "topic">> <>
-        # variable header - packet id
-        <<17 :: 16>> <>
-        # payload - properties - length and data
-        <<0>> <>
-        # payload - message body
-        <<"message">>
+        <<3::4, flag(false)::1, 1::2, flag(true)::1>> <>
+          <<17>> <>
+          <<5::16, "topic">> <>
+          <<17::16>> <>
+          <<0>> <>
+          <<"message">>
 
       assert Packet.decode(publish) == {
                :publish_qos1,
@@ -184,19 +189,19 @@ defmodule Packet.DecodeTest do
     end
 
     test "parses PUBLISH - retain as true - qos 2" do
+      # fixed header - packet type, flags
+      # fixed header - remaining length
+      # variable header - topic - length and data
+      # variable header - packet id
+      # payload - properties - length and data
+      # payload - message body
       publish =
-        # fixed header - packet type, flags
-        <<3 :: 4, flag(true) :: 1, 2 :: 2, flag(true) :: 1>> <>
-        # fixed header - remaining length
-        <<17>> <>
-        # variable header - topic - length and data
-        <<5 :: 16, "topic">> <>
-        # variable header - packet id
-        <<4 :: 16>> <>
-        # payload - properties - length and data
-        <<0>> <>
-        # payload - message body
-        <<"message">>
+        <<3::4, flag(true)::1, 2::2, flag(true)::1>> <>
+          <<17>> <>
+          <<5::16, "topic">> <>
+          <<4::16>> <>
+          <<0>> <>
+          <<"message">>
 
       assert Packet.decode(publish) == {
                :publish_qos2,
@@ -211,19 +216,19 @@ defmodule Packet.DecodeTest do
     end
 
     test "fails to parse PUBLISH - qos 3" do
+      # fixed header - packet type, flags
+      # fixed header - remaining length
+      # variable header - topic - length and data
+      # variable header - packet id
+      # payload - properties - length and data
+      # payload - message body
       publish =
-        # fixed header - packet type, flags
-        <<3 :: 4, flag(true) :: 1, 3 :: 2, flag(true) :: 1>> <>
-        # fixed header - remaining length
-        <<17>> <>
-        # variable header - topic - length and data
-        <<5 :: 16, "topic">> <>
-        # variable header - packet id
-        <<4 :: 16>> <>
-        # payload - properties - length and data
-        <<0>> <>
-        # payload - message body
-        <<"message">>
+        <<3::4, flag(true)::1, 3::2, flag(true)::1>> <>
+          <<17>> <>
+          <<5::16, "topic">> <>
+          <<4::16>> <>
+          <<0>> <>
+          <<"message">>
 
       {type, _error} = Packet.decode(publish)
       assert type == :unknown
@@ -300,8 +305,11 @@ defmodule Packet.DecodeTest do
   end
 
   test "can parse four length variable length ints" do
-    assert Packet.Decode.variable_length_prefixed(<<128, 128, 128, 1, 0>>) == {2_097_152, 4, <<0>>}
-    assert Packet.Decode.variable_length_prefixed(<<255, 255, 255, 127, 0>>) == {268_435_455, 4, <<0>>}
+    assert Packet.Decode.variable_length_prefixed(<<128, 128, 128, 1, 0>>) ==
+             {2_097_152, 4, <<0>>}
+
+    assert Packet.Decode.variable_length_prefixed(<<255, 255, 255, 127, 0>>) ==
+             {268_435_455, 4, <<0>>}
   end
 
   test "max variable length bytes is 4" do
