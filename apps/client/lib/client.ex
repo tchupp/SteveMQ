@@ -1,12 +1,12 @@
 defmodule Client do
-  def subscribe_1msg(client_id, topic_filter) do
+  def subscribe_1msg(client_id, topic_filter, qos \\ 0) do
     opts = [:binary, active: false]
     {:ok, socket} = :gen_tcp.connect('localhost', 1883, opts)
 
     IO.puts("got the tcp going")
 
     connect(socket, client_id)
-    subscribe(socket, topic_filter, 0)
+    subscribe(socket, topic_filter, qos)
 
     {:ok, packet} = :gen_tcp.recv(socket, 0, 2000)
     {:publish_qos0, data} = Packet.decode(packet)
