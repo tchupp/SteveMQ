@@ -7,13 +7,15 @@ defmodule BigTests.PubSubTest do
   end
 
   test "happy case sub/pub qos0" do
-#    pid = Task.async(fn ->
-#      Client.subscribe_1msg("clientId", "test/topic", 0)
-#    end)
-#
-#    :ok = Client.publish("clientId", "test/topic", 0)
-#
-#    _msg = Task.await(pid)
+    pid = Task.async(fn ->
+      Client.subscribe_1msg("dr_subscribe", "test/topic")
+    end)
+
+    Process.sleep(300)
+    :ok = Client.publish("mr_publish_jr", "helloooo", "test/topic")
+
+    msg = Task.await(pid)
+    assert msg == "helloooo"
   end
 
 end
