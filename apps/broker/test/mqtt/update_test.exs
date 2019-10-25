@@ -12,19 +12,39 @@ defmodule Mqtt.UpdateTest do
   end
 
   test "on connect with clean session, register client id and start a session" do
-    connect = {:connect, %Packet.Connect{client_id: "qwerty", clean_session: true, protocol_level: 5, keep_alive: 60}}
+    connect =
+      {:connect,
+       %Packet.Connect{
+         client_id: "qwerty",
+         clean_session: true,
+         protocol_level: 5,
+         keep_alive: 60
+       }}
+
     {_, commands} = Mqtt.Update.update(connect, @default_state)
 
     assert Enum.at(commands, 0) == Broker.Command.register_clientid("qwerty", self())
-    assert Enum.at(commands, 1) == Broker.Command.start_new_session("qwerty") <|> &Broker.Command.send_connack/1
+
+    assert Enum.at(commands, 1) ==
+             Broker.Command.start_new_session("qwerty") <|> (&Broker.Command.send_connack/1)
   end
 
   test "on connect without clean session, register client id and continue session" do
-    connect = {:connect, %Packet.Connect{client_id: "qwerty", clean_session: false, protocol_level: 5, keep_alive: 60}}
+    connect =
+      {:connect,
+       %Packet.Connect{
+         client_id: "qwerty",
+         clean_session: false,
+         protocol_level: 5,
+         keep_alive: 60
+       }}
+
     {_, commands} = Mqtt.Update.update(connect, @default_state)
 
     assert Enum.at(commands, 0) == Broker.Command.register_clientid("qwerty", self())
-    assert Enum.at(commands, 1) == Broker.Command.continue_session("qwerty") <|> &Broker.Command.send_connack/1
+
+    assert Enum.at(commands, 1) ==
+             Broker.Command.continue_session("qwerty") <|> (&Broker.Command.send_connack/1)
   end
 
   test "compose operator composes functions properly sum/div" do
@@ -35,5 +55,4 @@ defmodule Mqtt.UpdateTest do
 
     assert sum_then_div.(4) == 4
   end
-
 end

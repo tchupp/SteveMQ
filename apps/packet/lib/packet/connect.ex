@@ -5,14 +5,14 @@ defmodule Packet.Connect do
   alias Packet.Decode
 
   @opaque t :: %__MODULE__{
-                 client_id: Package.client_id(),
-                 username: binary() | nil,
-                 password: binary() | nil,
-                 protocol_level: non_neg_integer(),
-                 clean_session: boolean(),
-                 keep_alive: non_neg_integer(),
-                 will: Package.Publish.t() | nil
-               }
+            client_id: Package.client_id(),
+            username: binary() | nil,
+            password: binary() | nil,
+            protocol_level: non_neg_integer(),
+            clean_session: boolean(),
+            keep_alive: non_neg_integer(),
+            will: Package.Publish.t() | nil
+          }
 
   @opaque decode_result :: {:connect, t}
 

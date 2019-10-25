@@ -14,7 +14,8 @@ defmodule Mqtt.Update do
             case clean_session do
               true -> Broker.Command.start_new_session(client_id)
               false -> Broker.Command.continue_session(client_id)
-            end <|> &Broker.Command.send_connack/1
+            end
+            <|> (&Broker.Command.send_connack/1)
           ]
         }
 
@@ -65,5 +66,4 @@ defmodule Mqtt.Update do
   defp compose(f, arg) do
     f.(arg)
   end
-
 end

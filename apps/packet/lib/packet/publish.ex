@@ -5,29 +5,29 @@ defmodule Packet.Publish do
   alias Packet.Decode
 
   @type publish_qos0 :: %__MODULE__{
-                          topic: Packet.topic(),
-                          message: Packet.payload(),
-                          qos: 0,
-                          identifier: nil,
-                          dup: false,
-                          retain: boolean()
-                        }
+          topic: Packet.topic(),
+          message: Packet.payload(),
+          qos: 0,
+          identifier: nil,
+          dup: false,
+          retain: boolean()
+        }
   @type publish_qos1 :: %__MODULE__{
-                          topic: Packet.topic(),
-                          message: Packet.payload(),
-                          qos: 1,
-                          identifier: Packet.package_identifier(),
-                          dup: boolean(),
-                          retain: boolean()
-                        }
+          topic: Packet.topic(),
+          message: Packet.payload(),
+          qos: 1,
+          identifier: Packet.package_identifier(),
+          dup: boolean(),
+          retain: boolean()
+        }
   @type publish_qos2 :: %__MODULE__{
-                          topic: Packet.topic(),
-                          message: Packet.payload(),
-                          qos: 2,
-                          identifier: Packet.package_identifier(),
-                          dup: boolean(),
-                          retain: boolean()
-                        }
+          topic: Packet.topic(),
+          message: Packet.payload(),
+          qos: 2,
+          identifier: Packet.package_identifier(),
+          dup: boolean(),
+          retain: boolean()
+        }
 
   @opaque decode_result ::
             {:publish_qos0, publish_qos0}
@@ -43,15 +43,15 @@ defmodule Packet.Publish do
             dup: false,
             retain: false
 
-  @spec decode(<<_ :: 8>>, binary()) :: decode_result
+  @spec decode(<<_::8>>, binary()) :: decode_result
 
   #  publish - qos 0
   def decode(
-        <<3 :: 4, 0 :: 1, 0 :: 2, retain :: 1>>,
+        <<3::4, 0::1, 0::2, retain::1>>,
         <<
-          topic_length :: big - integer - size(16),
-          topic :: binary - size(topic_length),
-          rest :: binary
+          topic_length::big-integer-size(16),
+          topic::binary-size(topic_length),
+          rest::binary
         >>
       ) do
     {_properties_length, _props_length_size, message} = Decode.variable_length_prefixed(rest)
@@ -68,14 +68,15 @@ defmodule Packet.Publish do
 
   #  publish - qos 1/2
   def decode(
-        <<3 :: 4, dup :: 1, qos :: integer - size(2), retain :: 1>>,
+        <<3::4, dup::1, qos::integer-size(2), retain::1>>,
         <<
-          topic_length :: big - integer - size(16),
-          topic :: binary - size(topic_length),
-          rest :: binary
+          topic_length::big-integer-size(16),
+          topic::binary-size(topic_length),
+          rest::binary
         >>
-      ) when qos in 1..2 do
-    <<packet_id :: 16, rest :: binary>> = rest
+      )
+      when qos in 1..2 do
+    <<packet_id::16, rest::binary>> = rest
     {_properties_length, _props_length_size, message} = Decode.variable_length_prefixed(rest)
 
     publish_type =

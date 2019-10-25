@@ -2,15 +2,21 @@ defmodule Packet.EncodeTest do
   use ExUnit.Case
 
   test "encodes CONNECT with client id and clean" do
+    # fixed header
+    # protocol
+    # protocol level
+    # connect flags
+    # keep alive
+    # property length
+    # payload: client id
     assert Packet.Encode.connect("samuel-l-jackson", false) ==
-             <<16, 29>> <> # fixed header
-             <<0, 4, "MQTT">> <> # protocol
-             <<5>> <> # protocol level
-             <<0>> <> # connect flags
-             <<0, 60>> <> # keep alive
-             <<0>> <> # property length
-             <<0, 16, "samuel-l-jackson">> # payload: client id
-
+             <<16, 29>> <>
+               <<0, 4, "MQTT">> <>
+               <<5>> <>
+               <<0>> <>
+               <<0, 60>> <>
+               <<0>> <>
+               <<0, 16, "samuel-l-jackson">>
   end
 
   test "sets clean start flag when encoding CONNECT" do
@@ -37,11 +43,16 @@ defmodule Packet.EncodeTest do
   end
 
   test "encodes SUBSCRIBE" do
+    # fixed header
+    # packet id
+    # properties length
+    # payload
     assert Packet.Encode.subscribe(47, "a/topic") ==
-             <<8::4, 2::4>> <> <<12>> <> # fixed header
-             <<0, 47>> <> # packet id
-             <<0>> <> # properties length
-             <<0, 7, "a/topic">> #payload
+             <<8::4, 2::4>> <>
+               <<12>> <>
+               <<0, 47>> <>
+               <<0>> <>
+               <<0, 7, "a/topic">>
   end
 
   test "encodes SUBACK" do

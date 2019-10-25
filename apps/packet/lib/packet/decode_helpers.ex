@@ -19,7 +19,9 @@ defmodule Packet.Decode do
     {variable_int, 3, data}
   end
 
-  def variable_length_prefixed(<<1::1, l1::7, 1::1, l2::7, 1::1, l3::7, 0::1, l4::7,data::binary>>) do
+  def variable_length_prefixed(
+        <<1::1, l1::7, 1::1, l2::7, 1::1, l3::7, 0::1, l4::7, data::binary>>
+      ) do
     variable_int = l1 + (l2 <<< 7) + (l3 <<< 14) + (l4 <<< 21)
 
     {variable_int, 4, data}

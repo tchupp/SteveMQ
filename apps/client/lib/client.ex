@@ -1,5 +1,4 @@
 defmodule Client do
-
   def subscribe_1msg(client_id, topic_filter) do
     opts = [:binary, active: false]
     {:ok, socket} = :gen_tcp.connect('localhost', 1883, opts)
@@ -34,5 +33,4 @@ defmodule Client do
     {:ok, suback} = :gen_tcp.recv(socket, 0, 1000)
     {:suback, _} = Packet.decode(suback)
   end
-
 end
