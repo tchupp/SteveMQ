@@ -17,8 +17,8 @@ defmodule Packet.EncodeTest do
     clean_start_connect = Packet.Encode.connect("brian-boitano", true)
     dirty_start_connect = Packet.Encode.connect("kristi-yamaguchi", false)
 
-    assert :binary.at(dirty_start_connect, 12) == 0
-    assert :binary.at(clean_start_connect, 12) == 2
+    assert :binary.at(dirty_start_connect, 9) == 0
+    assert :binary.at(clean_start_connect, 9) == 2
   end
 
   test "encodes a basic CONNACK packet" do

@@ -9,8 +9,10 @@ defmodule Packet.Encode do
       false -> 0
     end
 
-    <<16, remaining_length, 0, 4, "MQTT", 5, 0, 0, 60>> <>
-    <<connect_flags>> <>
+    <<16, remaining_length, 0, 4, "MQTT", 5>> <>
+    <<connect_flags>> <> # connect flags
+    <<0, 60>> <> # keep alive
+    <<0>> <> # properties length
     <<0, client_id_length>> <> client_id
   end
 
