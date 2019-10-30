@@ -114,6 +114,75 @@ defmodule Packet.DecodeTest do
   end
 
   describe "CONNACK" do
+    test "decodes CONNACK - session_present (true, false)" do
+      return_code = 0x00
+
+      # session present size
+      # return code size
+      packet_length = 2
+
+      connack =
+        <<2::4, 0::4>> <>
+          <<packet_length::8>> <>
+          <<0::7, flag(false)::1>> <>
+          <<return_code::8>>
+
+      assert Packet.decode(connack) == {
+               :connack,
+               %Packet.Connack{
+                 session_present?: false,
+                 status: :accepted
+               }
+             }
+
+      connack =
+        <<2::4, 0::4>> <>
+          <<packet_length::8>> <>
+          <<0::7, flag(true)::1>> <>
+          <<return_code::8>>
+
+      assert Packet.decode(connack) == {
+               :connack,
+               %Packet.Connack{
+                 session_present?: true,
+                 status: :accepted
+               }
+             }
+    end
+
+    test "decodes CONNACK - all status" do
+      return_codes = [
+        {0x00, :accepted},
+        {0x01, {:refused, :unacceptable_protocol_version}},
+        {0x02, {:refused, :identifier_rejected}},
+        {0x03, {:refused, :server_unavailable}},
+        {0x04, {:refused, :bad_user_name_or_password}},
+        {0x05, {:refused, :not_authorized}},
+        {0x06, nil},
+        {0x10, nil},
+        {0x18, nil}
+      ]
+
+      for {return_code, status} <- return_codes do
+        # session present size
+        # return code size
+        packet_length = 2
+
+        connack =
+          <<2::4, 0::4>> <>
+            <<packet_length::8>> <>
+            <<0::7, flag(false)::1>> <>
+            <<return_code::8>>
+
+        assert Packet.decode(connack) == {
+                 :connack,
+                 %Packet.Connack{
+                   session_present?: false,
+                   status: status
+                 }
+               }
+      end
+    end
   end
 
   describe "PUBLISH" do
