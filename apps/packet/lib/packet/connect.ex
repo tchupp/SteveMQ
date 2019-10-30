@@ -14,7 +14,7 @@ defmodule Packet.Connect do
             will: Package.Publish.t() | nil
           }
 
-  @opaque decode_result :: {:connect, t}
+  @opaque decode_result :: {:connect, t} | {:unknown, String.t()}
 
   @enforce_keys [:client_id, :protocol_level, :clean_session, :keep_alive]
   defstruct client_id: nil,
