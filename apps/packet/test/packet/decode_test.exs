@@ -1,5 +1,6 @@
 defmodule Packet.DecodeTest do
   use ExUnit.Case, async: true
+  use ExUnitProperties
 
   describe "CONNECT" do
     test "parses CONNECT" do
@@ -114,56 +115,35 @@ defmodule Packet.DecodeTest do
   end
 
   describe "CONNACK" do
-    test "decodes CONNACK - session_present (true, false)" do
-      return_code = 0x00
+    property "decodes CONNACK - session_present" do
+      check all session_present? <- StreamData.boolean() do
+        # session present size
+        # return code size
+        packet_length = 2
 
-      # session present size
-      # return code size
-      packet_length = 2
+        connack =
+          <<2::4, 0::4>> <>
+            <<packet_length::8>> <>
+            <<0::7, flag(session_present?)::1>> <>
+            <<0::8>>
 
-      connack =
-        <<2::4, 0::4>> <>
-          <<packet_length::8>> <>
-          <<0::7, flag(false)::1>> <>
-          <<return_code::8>>
+        {:connack, %Packet.Connack{session_present?: actual?}} = Packet.decode(connack)
 
-      assert Packet.decode(connack) == {
-               :connack,
-               %Packet.Connack{
-                 session_present?: false,
-                 status: :accepted
-               }
-             }
-
-      connack =
-        <<2::4, 0::4>> <>
-          <<packet_length::8>> <>
-          <<0::7, flag(true)::1>> <>
-          <<return_code::8>>
-
-      assert Packet.decode(connack) == {
-               :connack,
-               %Packet.Connack{
-                 session_present?: true,
-                 status: :accepted
-               }
-             }
+        assert session_present? == actual?
+      end
     end
 
-    test "decodes CONNACK - all status" do
+    property "decodes CONNACK - known statuses" do
       return_codes = [
         {0x00, :accepted},
         {0x01, {:refused, :unacceptable_protocol_version}},
         {0x02, {:refused, :identifier_rejected}},
         {0x03, {:refused, :server_unavailable}},
         {0x04, {:refused, :bad_user_name_or_password}},
-        {0x05, {:refused, :not_authorized}},
-        {0x06, nil},
-        {0x10, nil},
-        {0x18, nil}
+        {0x05, {:refused, :not_authorized}}
       ]
 
-      for {return_code, status} <- return_codes do
+      check all {return_code, status} <- StreamData.member_of(return_codes) do
         # session present size
         # return code size
         packet_length = 2
@@ -174,13 +154,42 @@ defmodule Packet.DecodeTest do
             <<0::7, flag(false)::1>> <>
             <<return_code::8>>
 
+        {:connack, %Packet.Connack{status: actual}} = Packet.decode(connack)
+
+        assert status == actual
+      end
+    end
+
+    property "decodes CONNACK - unknown statuses" do
+      check all return_code <- StreamData.byte(), return_code > 6 do
+        packet_length = 2
+
+        connack =
+          <<2::4, 0::4>> <>
+            <<packet_length::8>> <>
+            <<0::7, flag(false)::1>> <>
+            <<return_code::8>>
+
         assert Packet.decode(connack) == {
-                 :connack,
-                 %Packet.Connack{
-                   session_present?: false,
-                   status: status
-                 }
+                 :connack_error,
+                 "unknown return_code. return_code=#{return_code}"
                }
+      end
+    end
+
+    property "decodes CONNACK - fails for unknown variable header data" do
+      check all variable_header <- StreamData.binary(min_length: 3),
+                binary_part(variable_header, 0, 1) > <<1>> do
+        packet_length = byte_size(variable_header)
+
+        connack =
+          <<2::4, 0::4>> <>
+            <<packet_length::8>> <>
+            variable_header
+
+        expected = {:connack_error, "unknown variable_header"}
+
+        assert Packet.decode(connack) == expected
       end
     end
   end
