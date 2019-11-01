@@ -14,7 +14,7 @@ defmodule Packet.Connack do
 
   @opaque t :: %__MODULE__{
             session_present?: boolean(),
-            status: status() | nil
+            status: status()
           }
 
   @opaque decode_result :: {:connack, t} | {:connack_error, String.t()}
@@ -24,7 +24,7 @@ defmodule Packet.Connack do
             status: nil
 
   @spec decode(<<_::8>>, binary()) :: decode_result
-  def decode(<<02::4, 0::4>>, <<0::7, session_present?::1, return_code::8, _rest::binary()>>)
+  def decode(<<2::4, 0::4>>, <<0::7, session_present?::1, return_code::8, _rest::binary()>>)
       when return_code in 0x00..0x06,
       do: {
         :connack,
@@ -34,10 +34,10 @@ defmodule Packet.Connack do
         }
       }
 
-  def decode(<<02::4, 0::4>>, <<0::7, _session_present?::1, return_code::8, _rest::binary()>>),
+  def decode(<<2::4, 0::4>>, <<0::7, _session_present?::1, return_code::8, _rest::binary()>>),
     do: {:connack_error, "unknown return_code. return_code=#{return_code}"}
 
-  def decode(<<02::4, 0::4>>, <<_unknown_header::binary()>>),
+  def decode(<<2::4, 0::4>>, <<_unknown_header::binary()>>),
     do: {:connack_error, "unknown variable_header"}
 
   @spec decode_return_code(<<_::8>>) :: status() | nil
