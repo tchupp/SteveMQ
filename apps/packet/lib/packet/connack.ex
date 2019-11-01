@@ -51,4 +51,33 @@ defmodule Packet.Connack do
       0x05 -> {:refused, :not_authorized}
     end
   end
+
+  defimpl Packet.Encodable do
+    def encode(%Packet.Connack{session_present?: session_present?, status: status})
+        when status != nil do
+      packet_length = 3
+      properties_length = 0
+
+      <<2::4, 0::4>> <>
+        <<packet_length::8>> <>
+        <<0::7, flag(session_present?)::1>> <>
+        <<to_return_code(status)::8>> <>
+        <<properties_length>>
+    end
+
+    defp to_return_code(:accepted), do: 0x00
+
+    defp to_return_code({:refused, reason}) do
+      case reason do
+        :unacceptable_protocol_version -> 0x01
+        :identifier_rejected -> 0x02
+        :server_unavailable -> 0x03
+        :bad_user_name_or_password -> 0x04
+        :not_authorized -> 0x05
+      end
+    end
+
+    defp flag(f) when f in [0, nil, false], do: 0
+    defp flag(_), do: 1
+  end
 end

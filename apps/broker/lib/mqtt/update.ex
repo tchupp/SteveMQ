@@ -47,10 +47,10 @@ defmodule Mqtt.Update do
         {state, [Broker.Command.send_pingresp()]}
 
       {:unknown, error} ->
-        {state, [Broker.Command.disconnect(socket, error)]}
+        {state, [Broker.Command.send_disconnect(socket, error)]}
 
       {:error, error} ->
-        {state, [Broker.Command.disconnect(socket, error)]}
+        {state, [Broker.Command.send_disconnect(socket, error)]}
 
       _ ->
         {state, []}
