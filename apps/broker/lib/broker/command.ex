@@ -1,6 +1,8 @@
 defmodule Broker.Command do
   require Logger
 
+  alias Packet.Connack
+
   @doc """
     - Return {:none} from commands to report no events
     - Otherwise, Events look like this: {<event type atom>, <optional: more stuff>}
@@ -44,7 +46,12 @@ defmodule Broker.Command do
   def send_connack({_, session_present?: session_present?}) do
     fn {socket, _} ->
       Logger.info("Sending CONNACK, session present: #{session_present?}")
-      :gen_tcp.send(socket, Packet.Encode.connack(session_present?: session_present?))
+
+      :gen_tcp.send(
+        socket,
+        Packet.encode(%Connack{session_present?: session_present?, status: :accepted})
+      )
+
       {:none}
     end
   end
@@ -118,11 +125,9 @@ defmodule Broker.Command do
     end
   end
 
-  #  this is totally not sending a disconnect right now, but this works better than not
-  def disconnect(socket, error) do
+  def send_disconnect(socket, error) do
     fn _ ->
-      Logger.info("error reading tcp socket: #{error}")
-      :gen_tcp.send(socket, Packet.Encode.connack(:error))
+      Logger.info("error reading tcp socket")
       exit(error)
     end
   end

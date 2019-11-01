@@ -34,13 +34,6 @@ defmodule Packet.Encode do
     packet_type <> remaining_length <> <<packet_id::16>> <> reason_code <> property_length
   end
 
-  def connack(session_present?: session_present?) do
-    case session_present? do
-      true -> <<32, 3, 1, 0, 0>>
-      false -> <<32, 3, 0, 0, 0>>
-    end
-  end
-
   def subscribe(packet_id, topic_filter) do
     packet_type = <<8::4, 2::4>>
     filter_utf8 = utf8(topic_filter)

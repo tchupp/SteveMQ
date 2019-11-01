@@ -1,5 +1,31 @@
 defmodule Packet.EncodeTest do
-  use ExUnit.Case
+  use ExUnit.Case, async: true
+  use ExUnitProperties
+
+  describe "CONNACK" do
+    property "encodes CONNACK" do
+      check all session_present? <- StreamData.boolean(),
+                status <-
+                  StreamData.member_of([
+                    :accepted,
+                    {:refused, :unacceptable_protocol_version},
+                    {:refused, :identifier_rejected},
+                    {:refused, :server_unavailable},
+                    {:refused, :bad_user_name_or_password},
+                    {:refused, :not_authorized}
+                  ]) do
+        connack = %Packet.Connack{
+          session_present?: session_present?,
+          status: status
+        }
+
+        assert {:connack, connack} ==
+                 connack
+                 |> Packet.encode()
+                 |> Packet.decode()
+      end
+    end
+  end
 
   test "encodes CONNECT with client id and clean" do
     # fixed header
