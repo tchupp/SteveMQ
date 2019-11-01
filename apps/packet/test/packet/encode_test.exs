@@ -53,15 +53,6 @@ defmodule Packet.EncodeTest do
     assert :binary.at(clean_start_connect, 9) == 2
   end
 
-  test "encodes a basic CONNACK packet" do
-    assert Packet.Encode.connack(session_present?: false) == <<32, 3, 0, 0, 0>>
-    assert Packet.Encode.connack(session_present?: true) == <<32, 3, 1, 0, 0>>
-  end
-
-  test "encodes CONNACK with error codes" do
-    assert Packet.Encode.connack(:error) == <<32, 3, 0, 0, 131>>
-  end
-
   test "encodes PUBACK with packet id" do
     packet_id = 123
 

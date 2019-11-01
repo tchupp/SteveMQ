@@ -21,10 +21,6 @@ defmodule Packet.Encode do
       <<0, client_id_length>> <> client_id
   end
 
-  def connack(:error) do
-    <<2::4, 0::4>> <> <<3, 0, 0, 131>>
-  end
-
   def puback(packet_id) do
     packet_type = <<4::4, 0::4>>
     remaining_length = <<4::8>>
