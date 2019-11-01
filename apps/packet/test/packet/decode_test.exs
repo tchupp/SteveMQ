@@ -119,12 +119,14 @@ defmodule Packet.DecodeTest do
       check all session_present? <- StreamData.boolean() do
         # session present size
         # return code size
-        packet_length = 2
+        # properties length size
+        packet_length = 3
 
         connack =
           <<2::4, 0::4>> <>
             <<packet_length::8>> <>
             <<0::7, flag(session_present?)::1>> <>
+            <<0::8>> <>
             <<0::8>>
 
         {:connack, %Packet.Connack{session_present?: actual?}} = Packet.decode(connack)
@@ -146,13 +148,14 @@ defmodule Packet.DecodeTest do
       check all {return_code, status} <- StreamData.member_of(return_codes) do
         # session present size
         # return code size
-        packet_length = 2
+        packet_length = 3
 
         connack =
           <<2::4, 0::4>> <>
             <<packet_length::8>> <>
             <<0::7, flag(false)::1>> <>
-            <<return_code::8>>
+            <<return_code::8>> <>
+            <<0::8>>
 
         {:connack, %Packet.Connack{status: actual}} = Packet.decode(connack)
 
@@ -162,13 +165,14 @@ defmodule Packet.DecodeTest do
 
     property "decodes CONNACK - unknown statuses" do
       check all return_code <- StreamData.byte(), return_code > 6 do
-        packet_length = 2
+        packet_length = 3
 
         connack =
           <<2::4, 0::4>> <>
             <<packet_length::8>> <>
             <<0::7, flag(false)::1>> <>
-            <<return_code::8>>
+            <<return_code::8>> <>
+            <<0::8>>
 
         assert Packet.decode(connack) == {
                  :connack_error,
