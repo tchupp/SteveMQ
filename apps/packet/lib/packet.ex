@@ -20,7 +20,7 @@ defmodule Packet do
 
   @type client_id() :: String.t()
 
-  @type package_identifier() :: 0x0001..0xFFFF
+  @type packet_identifier() :: 0x0001..0xFFFF
 
   @type qos() :: 0..2
 
