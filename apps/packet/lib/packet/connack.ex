@@ -40,7 +40,7 @@ defmodule Packet.Connack do
   def decode(<<2::4, 0::4>>, <<_unknown_header::binary()>>),
     do: {:connack_error, "unknown variable_header"}
 
-  @spec decode_return_code(<<_::8>>) :: status() | nil
+  @spec decode_return_code(<<_::8>>) :: status()
   def decode_return_code(return_code) do
     case return_code do
       0x00 -> :accepted

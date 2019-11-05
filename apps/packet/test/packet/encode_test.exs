@@ -27,6 +27,53 @@ defmodule Packet.EncodeTest do
     end
   end
 
+  describe "PUBACK" do
+    property "encodes PUBACK - short form" do
+      check all packet_id <- StreamData.positive_integer() do
+        actual = %Packet.Puback{
+          packet_id: packet_id,
+          status: nil
+        }
+
+        expected = %Packet.Puback{
+          packet_id: packet_id,
+          status: {:accepted, :ok}
+        }
+
+        assert {:puback, expected} ==
+                 actual
+                 |> Packet.encode()
+                 |> Packet.decode()
+      end
+    end
+
+    property "encodes PUBACK - long form" do
+      check all packet_id <- StreamData.positive_integer(),
+                status <-
+                  StreamData.member_of([
+                    {:accepted, :ok},
+                    {:accepted, :no_matching_subscribers},
+                    {:refused, :unspecified_error},
+                    {:refused, :implementation_specific_error},
+                    {:refused, :not_authorized},
+                    {:refused, :topic_name_invalid},
+                    {:refused, :packet_identifier_in_use},
+                    {:refused, :quota_exceeded},
+                    {:refused, :payload_format_invalid}
+                  ]) do
+        connack = %Packet.Puback{
+          packet_id: packet_id,
+          status: status
+        }
+
+        assert {:puback, connack} ==
+                 connack
+                 |> Packet.encode()
+                 |> Packet.decode()
+      end
+    end
+  end
+
   test "encodes CONNECT with client id and clean" do
     # fixed header
     # protocol

@@ -318,6 +318,55 @@ defmodule Packet.DecodeTest do
   end
 
   describe "PUBACK" do
+    property "decode PUBACK - packet_id" do
+      check all packet_id <- StreamData.positive_integer() do
+        # packet id size
+        packet_length = 2
+
+        puback =
+          <<4::4, 0::4>> <>
+            <<packet_length::8>> <>
+            <<packet_id::16>>
+
+        {:puback, %Packet.Puback{packet_id: actual_packet_id, status: actual_status}} =
+          Packet.decode(puback)
+
+        assert packet_id == actual_packet_id
+        assert {:accepted, :ok} == actual_status
+      end
+    end
+
+    property "decode PUBACK - status" do
+      reason_codes = [
+        {0x00, {:accepted, :ok}},
+        {0x10, {:accepted, :no_matching_subscribers}},
+        {0x80, {:refused, :unspecified_error}},
+        {0x83, {:refused, :implementation_specific_error}},
+        {0x87, {:refused, :not_authorized}},
+        {0x90, {:refused, :topic_name_invalid}},
+        {0x91, {:refused, :packet_identifier_in_use}},
+        {0x97, {:refused, :quota_exceeded}},
+        {0x99, {:refused, :payload_format_invalid}}
+      ]
+
+      check all {reason_code, status} <- StreamData.member_of(reason_codes) do
+        # packet id size
+        # reason code size
+        # properties length size
+        packet_length = 4
+
+        puback =
+          <<4::4, 0::4>> <>
+            <<packet_length::8>> <>
+            <<1::16>> <>
+            <<reason_code::8>> <>
+            <<0::8>>
+
+        {:puback, %Packet.Puback{status: actual_status}} = Packet.decode(puback)
+
+        assert status == actual_status
+      end
+    end
   end
 
   describe "PUBREC" do

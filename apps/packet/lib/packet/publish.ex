@@ -16,7 +16,7 @@ defmodule Packet.Publish do
           topic: Packet.topic(),
           message: Packet.payload(),
           qos: 1,
-          identifier: Packet.package_identifier(),
+          identifier: Packet.packet_identifier(),
           dup: boolean(),
           retain: boolean()
         }
@@ -24,7 +24,7 @@ defmodule Packet.Publish do
           topic: Packet.topic(),
           message: Packet.payload(),
           qos: 2,
-          identifier: Packet.package_identifier(),
+          identifier: Packet.packet_identifier(),
           dup: boolean(),
           retain: boolean()
         }
