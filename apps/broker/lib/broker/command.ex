@@ -59,7 +59,12 @@ defmodule Broker.Command do
   def send_puback(packet_id) do
     fn {socket, _} ->
       Logger.info("Sending PUBACK. packet_id: #{packet_id}")
-      :gen_tcp.send(socket, Packet.Encode.puback(packet_id))
+
+      :gen_tcp.send(
+        socket,
+        Packet.encode(%Packet.Puback{packet_id: packet_id, status: {:accepted, :ok}})
+      )
+
       {:none}
     end
   end
@@ -86,7 +91,7 @@ defmodule Broker.Command do
     end
   end
 
-  def schedule_publish(%{topic: topic, message: message}) do
+  def schedule_publish(%Packet.Publish{topic: topic, message: message}) do
     fn {_, client_id} ->
       Logger.info("received PUBLISH to #{topic} from client: #{client_id}")
 

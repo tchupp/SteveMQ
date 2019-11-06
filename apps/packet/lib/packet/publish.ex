@@ -8,7 +8,7 @@ defmodule Packet.Publish do
           topic: Packet.topic(),
           message: Packet.payload(),
           qos: 0,
-          identifier: nil,
+          packet_id: nil,
           dup: false,
           retain: boolean()
         }
@@ -16,7 +16,7 @@ defmodule Packet.Publish do
           topic: Packet.topic(),
           message: Packet.payload(),
           qos: 1,
-          identifier: Packet.packet_identifier(),
+          packet_id: Packet.packet_identifier(),
           dup: boolean(),
           retain: boolean()
         }
@@ -24,7 +24,7 @@ defmodule Packet.Publish do
           topic: Packet.topic(),
           message: Packet.payload(),
           qos: 2,
-          identifier: Packet.packet_identifier(),
+          packet_id: Packet.packet_identifier(),
           dup: boolean(),
           retain: boolean()
         }
@@ -39,7 +39,7 @@ defmodule Packet.Publish do
   defstruct topic: nil,
             message: nil,
             qos: nil,
-            identifier: nil,
+            packet_id: nil,
             dup: false,
             retain: false
 
@@ -58,9 +58,10 @@ defmodule Packet.Publish do
 
     {
       :publish_qos0,
-      %{
+      %Packet.Publish{
         topic: topic,
         message: message,
+        qos: 0,
         retain: retain == 1
       }
     }
@@ -87,9 +88,10 @@ defmodule Packet.Publish do
 
     {
       publish_type,
-      %{
+      %Packet.Publish{
         topic: topic,
         message: message,
+        qos: qos,
         packet_id: packet_id,
         dup: dup == 1,
         retain: retain == 1

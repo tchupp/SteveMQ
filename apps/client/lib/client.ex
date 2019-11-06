@@ -7,8 +7,8 @@ defmodule Client do
     subscribe(socket, topic_filter, qos)
 
     {:ok, packet} = :gen_tcp.recv(socket, 0, 2000)
-    {:publish_qos0, data} = Packet.decode(packet)
-    data[:message]
+    {:publish_qos0, %Packet.Publish{message: message}} = Packet.decode(packet)
+    message
   end
 
   def publish(client_id, message, topic) do

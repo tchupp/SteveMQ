@@ -39,7 +39,16 @@ defmodule Packet.Puback do
       }
 
   def decode(<<4::4, 0::4>>, <<packet_id::16, reason_code::8, property_length::8, _rest::binary>>)
-      when packet_id in 0x0001..0xFFFF,
+      when packet_id in 0x0001..0xFFFF and
+             (reason_code == 0x00 or
+                reason_code == 0x10 or
+                reason_code == 0x80 or
+                reason_code == 0x83 or
+                reason_code == 0x87 or
+                reason_code == 0x90 or
+                reason_code == 0x91 or
+                reason_code == 0x97 or
+                reason_code == 0x99),
       do: {
         :puback,
         %Packet.Puback{
@@ -48,8 +57,8 @@ defmodule Packet.Puback do
         }
       }
 
-  def decode(<<_header::8>>, <<rest::24>>) do
-    {:puback_error, ""}
+  def decode(<<4::4, 0::4>>, <<_packet_id::16, reason_code::8, _rest::binary>>) do
+    {:puback_error, "unknown reason_code. reason_code=#{reason_code}"}
   end
 
   @spec decode_reason_code(<<_::8>>) :: status()
