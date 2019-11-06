@@ -212,9 +212,10 @@ defmodule Packet.DecodeTest do
 
       assert Packet.decode(publish) == {
                :publish_qos0,
-               %{
+               %Packet.Publish{
                  topic: "topic",
                  message: "message",
+                 qos: 0,
                  retain: false
                }
              }
@@ -235,9 +236,10 @@ defmodule Packet.DecodeTest do
 
       assert Packet.decode(publish) == {
                :publish_qos0,
-               %{
+               %Packet.Publish{
                  topic: "topic",
                  message: "message",
+                 qos: 0,
                  retain: false
                }
              }
@@ -260,9 +262,10 @@ defmodule Packet.DecodeTest do
 
       assert Packet.decode(publish) == {
                :publish_qos1,
-               %{
+               %Packet.Publish{
                  topic: "topic",
                  message: "message",
+                 qos: 1,
                  packet_id: 17,
                  dup: false,
                  retain: true
@@ -287,9 +290,10 @@ defmodule Packet.DecodeTest do
 
       assert Packet.decode(publish) == {
                :publish_qos2,
-               %{
+               %Packet.Publish{
                  topic: "topic",
                  message: "message",
+                 qos: 2,
                  packet_id: 4,
                  dup: true,
                  retain: true
@@ -365,6 +369,33 @@ defmodule Packet.DecodeTest do
         {:puback, %Packet.Puback{status: actual_status}} = Packet.decode(puback)
 
         assert status == actual_status
+      end
+    end
+
+    property "decodes PUBACK - unknown statuses" do
+      check all reason_code <- StreamData.byte(),
+                reason_code != 0x00,
+                reason_code != 0x10,
+                reason_code != 0x80,
+                reason_code != 0x83,
+                reason_code != 0x87,
+                reason_code != 0x90,
+                reason_code != 0x91,
+                reason_code != 0x97,
+                reason_code != 0x99 do
+        packet_length = 4
+
+        puback =
+          <<4::4, 0::4>> <>
+            <<packet_length::8>> <>
+            <<1::16>> <>
+            <<reason_code::8>> <>
+            <<0::8>>
+
+        assert Packet.decode(puback) == {
+                 :puback_error,
+                 "unknown reason_code. reason_code=#{reason_code}"
+               }
       end
     end
   end

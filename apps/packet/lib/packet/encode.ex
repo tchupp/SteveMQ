@@ -21,15 +21,6 @@ defmodule Packet.Encode do
       <<0, client_id_length>> <> client_id
   end
 
-  def puback(packet_id) do
-    packet_type = <<4::4, 0::4>>
-    remaining_length = <<4::8>>
-    reason_code = <<0::8>>
-    property_length = <<0::8>>
-
-    packet_type <> remaining_length <> <<packet_id::16>> <> reason_code <> property_length
-  end
-
   def subscribe(packet_id, topic_filter) do
     packet_type = <<8::4, 2::4>>
     filter_utf8 = utf8(topic_filter)

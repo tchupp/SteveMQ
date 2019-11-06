@@ -25,15 +25,15 @@ defmodule Mqtt.Update do
       {:subscription_added, packet_id} ->
         {state, [Broker.Command.send_suback(packet_id)]}
 
-      {:publish_qos0, data} ->
-        {state, [Broker.Command.schedule_publish(data)]}
+      {:publish_qos0, publish} ->
+        {state, [Broker.Command.schedule_publish(publish)]}
 
-      {:publish_qos1, data} ->
+      {:publish_qos1, %Packet.Publish{packet_id: packet_id} = publish} ->
         {
           state,
           [
-            Broker.Command.send_puback(data[:packet_id]),
-            Broker.Command.schedule_publish(data)
+            Broker.Command.send_puback(packet_id),
+            Broker.Command.schedule_publish(publish)
           ]
         }
 

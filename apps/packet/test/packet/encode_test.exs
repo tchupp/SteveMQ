@@ -100,12 +100,6 @@ defmodule Packet.EncodeTest do
     assert :binary.at(clean_start_connect, 9) == 2
   end
 
-  test "encodes PUBACK with packet id" do
-    packet_id = 123
-
-    assert Packet.Encode.puback(packet_id) == <<64, 4, packet_id::16, 0, 0>>
-  end
-
   test "encodes SUBSCRIBE" do
     # fixed header
     # packet id
