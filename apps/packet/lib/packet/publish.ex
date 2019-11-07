@@ -3,6 +3,7 @@ defmodule Packet.Publish do
   require Logger
 
   alias Packet.Decode
+  alias Packet.Encode2, as: Encode
 
   @type publish_qos0 :: %__MODULE__{
           topic: Packet.topic(),
@@ -104,5 +105,33 @@ defmodule Packet.Publish do
 
   def decode(<<3::4, _dup::1, _qos::integer-size(2), _retain::1>>, <<rest::binary>>) do
     {:publish_error, byte_size(rest)}
+  end
+
+  defimpl Packet.Encodable do
+    def encode(%Packet.Publish{packet_id: nil, qos: 0} = publish) do
+      <<3::4, 0::1, 0::2, flag(publish.retain)::1>> <>
+        Encode.variable_length_prefixed(
+          Encode.fixed_length_prefixed(publish.topic) <>
+            Encode.variable_length_prefixed(<<>>) <>
+            encode_message(publish)
+        )
+    end
+
+    def encode(%Packet.Publish{packet_id: packet_id, qos: qos} = publish)
+        when packet_id in 0x0001..0xFFFF do
+      <<3::4, flag(publish.dup)::1, qos::2, flag(publish.retain)::1>> <>
+        Encode.variable_length_prefixed(
+          Encode.fixed_length_prefixed(publish.topic) <>
+            <<packet_id::16>> <>
+            Encode.variable_length_prefixed(<<>>) <>
+            encode_message(publish)
+        )
+    end
+
+    defp encode_message(%Packet.Publish{message: nil}), do: ""
+    defp encode_message(%Packet.Publish{message: payload}), do: payload
+
+    defp flag(f) when f in [0, nil, false], do: 0
+    defp flag(_), do: 1
   end
 end

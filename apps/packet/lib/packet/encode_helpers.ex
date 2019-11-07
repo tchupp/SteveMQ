@@ -15,4 +15,8 @@ defmodule Packet.Encode2 do
   def variable_length_int(n) do
     <<1::1, rem(n, @highbit)::7>> <> variable_length_int(div(n, @highbit))
   end
+
+  def fixed_length_prefixed(data) do
+    <<byte_size(data)::16, data::binary>>
+  end
 end
