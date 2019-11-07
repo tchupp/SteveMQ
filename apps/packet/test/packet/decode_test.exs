@@ -2,6 +2,8 @@ defmodule Packet.DecodeTest do
   use ExUnit.Case, async: true
   use ExUnitProperties
 
+  import Packet.Encode2
+
   describe "CONNECT" do
     test "parses CONNECT" do
       protocol_level = 5
@@ -199,106 +201,124 @@ defmodule Packet.DecodeTest do
   end
 
   describe "PUBLISH" do
-    test "parses PUBLISH" do
-      # fixed header - packet type, flags
-      # fixed header - remaining length
-      # variable header - topic - length and data
-      publish =
-        <<3::4, 0::1, 0::2, 0::1>> <>
-          <<15>> <>
-          <<5::16, "topic">> <>
-          <<0>> <>
-          <<"message">>
+    property "decode PUBLISH - message, ignores extra characters (anything past 7)" do
+      check all message <- StreamData.string(:alphanumeric, min_length: 7),
+                topic <- StreamData.string(:alphanumeric, min_length: 1),
+                retain <- StreamData.boolean() do
+        qos_code = 0
+        qos_key = :publish_qos0
+        topic_length = byte_size(topic)
+        message_length = 7
 
-      assert Packet.decode(publish) == {
-               :publish_qos0,
-               %Packet.Publish{
-                 topic: "topic",
-                 message: "message",
-                 qos: 0,
-                 retain: false
+        packet_length =
+          2 +
+            topic_length +
+            1 +
+            message_length
+
+        # fixed header - packet type, flags
+        # fixed header - remaining length
+        # variable header - topic - length and data
+        publish =
+          <<3::4, 0::1, qos_code::2, flag(retain)::1>> <>
+            variable_length_int(packet_length) <>
+            <<topic_length::16, topic::binary>> <>
+            <<0>> <>
+            <<message::binary>>
+
+        assert Packet.decode(publish) == {
+                 qos_key,
+                 %Packet.Publish{
+                   topic: topic,
+                   message: String.slice(message, 0, 7),
+                   qos: qos_code,
+                   retain: retain
+                 }
                }
-             }
+      end
     end
 
-    test "parses PUBLISH with extra chars" do
-      # fixed header - packet type, flags
-      # fixed header - remaining length
-      # variable header - topic - length and data
-      # payload - properties - length and data
-      # payload - message body
-      publish =
-        <<3::4, 0::1, 0::2, 0::1>> <>
-          <<15>> <>
-          <<5::16, "topic">> <>
-          <<0>> <>
-          <<"message?!?">>
+    property "decode PUBLISH - qos 0" do
+      check all message <- StreamData.string(:alphanumeric, min_length: 0),
+                topic <- StreamData.string(:alphanumeric, min_length: 1),
+                retain <- StreamData.boolean() do
+        qos_code = 0
+        topic_length = byte_size(topic)
+        message_length = byte_size(message)
 
-      assert Packet.decode(publish) == {
-               :publish_qos0,
-               %Packet.Publish{
-                 topic: "topic",
-                 message: "message",
-                 qos: 0,
-                 retain: false
+        packet_length =
+          2 +
+            topic_length +
+            1 +
+            message_length
+
+        # fixed header - packet type, flags
+        # fixed header - remaining length
+        # variable header - topic - length and data
+        publish =
+          <<3::4, 0::1, qos_code::2, flag(retain)::1>> <>
+            variable_length_int(packet_length) <>
+            <<topic_length::16, topic::binary>> <>
+            <<0>> <>
+            <<message::binary>>
+
+        assert Packet.decode(publish) == {
+                 :publish_qos0,
+                 %Packet.Publish{
+                   topic: topic,
+                   message: message,
+                   qos: qos_code,
+                   retain: retain
+                 }
                }
-             }
+      end
     end
 
-    test "parses PUBLISH - retain as true - qos 1" do
-      # fixed header - packet type, flags
-      # fixed header - remaining length
-      # variable header - topic - length and data
-      # variable header - packet id
-      # payload - properties - length and data
-      # payload - message body
-      publish =
-        <<3::4, flag(false)::1, 1::2, flag(true)::1>> <>
-          <<17>> <>
-          <<5::16, "topic">> <>
-          <<17::16>> <>
-          <<0>> <>
-          <<"message">>
+    property "decode PUBLISH - qos 1/2" do
+      publish_qos = [
+        {1, :publish_qos1},
+        {2, :publish_qos2}
+      ]
 
-      assert Packet.decode(publish) == {
-               :publish_qos1,
-               %Packet.Publish{
-                 topic: "topic",
-                 message: "message",
-                 qos: 1,
-                 packet_id: 17,
-                 dup: false,
-                 retain: true
+      check all message <- StreamData.string(:alphanumeric, min_length: 0),
+                topic <- StreamData.string(:alphanumeric, min_length: 1),
+                dup <- StreamData.boolean(),
+                retain <- StreamData.boolean(),
+                packet_id <- StreamData.positive_integer(),
+                {qos_code, qos_key} <- StreamData.member_of(publish_qos) do
+        topic_length = byte_size(topic)
+        message_length = byte_size(message)
+
+        packet_length =
+          2 +
+            topic_length +
+            2 +
+            1 +
+            message_length
+
+        # fixed header - packet type, flags
+        # fixed header - remaining length
+        # variable header - topic - length and data
+        publish =
+          <<3::4, flag(dup)::1, qos_code::2, flag(retain)::1>> <>
+            variable_length_int(packet_length) <>
+            <<topic_length::16, topic::binary>> <>
+            <<packet_id::16>> <>
+            <<0>> <>
+            <<message::binary>>
+
+        assert Packet.decode(publish) == {
+                 qos_key,
+                 %Packet.Publish{
+                   topic: topic,
+                   message: message,
+                   qos: qos_code,
+                   retain: retain,
+                   packet_id: packet_id,
+                   dup: dup
+                 }
                }
-             }
-    end
-
-    test "parses PUBLISH - retain as true - qos 2" do
-      # fixed header - packet type, flags
-      # fixed header - remaining length
-      # variable header - topic - length and data
-      # variable header - packet id
-      # payload - properties - length and data
-      # payload - message body
-      publish =
-        <<3::4, flag(true)::1, 2::2, flag(true)::1>> <>
-          <<17>> <>
-          <<5::16, "topic">> <>
-          <<4::16>> <>
-          <<0>> <>
-          <<"message">>
-
-      assert Packet.decode(publish) == {
-               :publish_qos2,
-               %Packet.Publish{
-                 topic: "topic",
-                 message: "message",
-                 qos: 2,
-                 packet_id: 4,
-                 dup: true,
-                 retain: true
-               }
-             }
+      end
     end
 
     test "fails to parse PUBLISH - qos 3" do
@@ -452,32 +472,34 @@ defmodule Packet.DecodeTest do
     end
   end
 
-  test "can parse one length variable length ints" do
-    assert Packet.Decode.variable_length_prefixed(<<0, 0>>) == {0, 1, <<0>>}
-    assert Packet.Decode.variable_length_prefixed(<<127, 0>>) == {127, 1, <<0>>}
-  end
+  describe "variable_length_prefixed" do
+    test "can parse one length variable length ints" do
+      assert Packet.Decode.variable_length_prefixed(<<0, 0>>) == {0, 1, <<0>>}
+      assert Packet.Decode.variable_length_prefixed(<<127, 0>>) == {127, 1, <<0>>}
+    end
 
-  test "can parse two length variable length ints" do
-    assert Packet.Decode.variable_length_prefixed(<<128, 1, 0>>) == {128, 2, <<0>>}
-    assert Packet.Decode.variable_length_prefixed(<<255, 127, 0>>) == {16_383, 2, <<0>>}
-  end
+    test "can parse two length variable length ints" do
+      assert Packet.Decode.variable_length_prefixed(<<128, 1, 0>>) == {128, 2, <<0>>}
+      assert Packet.Decode.variable_length_prefixed(<<255, 127, 0>>) == {16_383, 2, <<0>>}
+    end
 
-  test "can parse three length variable length ints" do
-    assert Packet.Decode.variable_length_prefixed(<<128, 128, 1, 0>>) == {16_384, 3, <<0>>}
-    assert Packet.Decode.variable_length_prefixed(<<255, 255, 127, 0>>) == {2_097_151, 3, <<0>>}
-  end
+    test "can parse three length variable length ints" do
+      assert Packet.Decode.variable_length_prefixed(<<128, 128, 1, 0>>) == {16_384, 3, <<0>>}
+      assert Packet.Decode.variable_length_prefixed(<<255, 255, 127, 0>>) == {2_097_151, 3, <<0>>}
+    end
 
-  test "can parse four length variable length ints" do
-    assert Packet.Decode.variable_length_prefixed(<<128, 128, 128, 1, 0>>) ==
-             {2_097_152, 4, <<0>>}
+    test "can parse four length variable length ints" do
+      assert Packet.Decode.variable_length_prefixed(<<128, 128, 128, 1, 0>>) ==
+               {2_097_152, 4, <<0>>}
 
-    assert Packet.Decode.variable_length_prefixed(<<255, 255, 255, 127, 0>>) ==
-             {268_435_455, 4, <<0>>}
-  end
+      assert Packet.Decode.variable_length_prefixed(<<255, 255, 255, 127, 0>>) ==
+               {268_435_455, 4, <<0>>}
+    end
 
-  test "max variable length bytes is 4" do
-    assert_raise RuntimeError, ~r/error/, fn ->
-      Packet.Decode.variable_length_prefixed(<<255, 255, 255, 255, 7>>)
+    test "max variable length bytes is 4" do
+      assert_raise RuntimeError, ~r/error/, fn ->
+        Packet.Decode.variable_length_prefixed(<<255, 255, 255, 255, 7>>)
+      end
     end
   end
 

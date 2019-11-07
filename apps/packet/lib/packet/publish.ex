@@ -67,17 +67,20 @@ defmodule Packet.Publish do
     }
   end
 
+  def decode(<<3::4, _dup::1, 3::integer-size(2), _retain::1>>, <<_rest::binary>>) do
+    {:publish_error, "unsupported qos. qos=3"}
+  end
+
   #  publish - qos 1/2
   def decode(
         <<3::4, dup::1, qos::integer-size(2), retain::1>>,
         <<
           topic_length::big-integer-size(16),
           topic::binary-size(topic_length),
+          packet_id::16,
           rest::binary
         >>
-      )
-      when qos in 1..2 do
-    <<packet_id::16, rest::binary>> = rest
+      ) do
     {_properties_length, _props_length_size, message} = Decode.variable_length_prefixed(rest)
 
     publish_type =
@@ -97,10 +100,6 @@ defmodule Packet.Publish do
         retain: retain == 1
       }
     }
-  end
-
-  def decode(<<3::4, _dup::1, 3::integer-size(2), _retain::1>>, <<_rest::binary>>) do
-    {:publish_error, "unsupported qos. qos=3"}
   end
 
   def decode(<<3::4, _dup::1, _qos::integer-size(2), _retain::1>>, <<rest::binary>>) do
