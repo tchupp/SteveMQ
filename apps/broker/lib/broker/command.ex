@@ -91,7 +91,7 @@ defmodule Broker.Command do
     end
   end
 
-  def schedule_publish(%Packet.Publish{topic: topic, message: message}) do
+  def schedule_publish(%Packet.Publish{topic: topic, message: message} = publish) do
     fn {_, client_id} ->
       Logger.info("received PUBLISH to #{topic} from client: #{client_id}")
 
@@ -100,17 +100,17 @@ defmodule Broker.Command do
 
       for subscriber <- subscribers do
         pid = Broker.Connection.Registry.get_pid(Broker.Connection.Registry, subscriber)
-        Broker.Connection.schedule_cmd_external(pid, publish_to_client(topic, message))
+        Broker.Connection.schedule_cmd_external(pid, publish_to_client(publish))
       end
 
       {:none}
     end
   end
 
-  def publish_to_client(topic, message) do
+  def publish_to_client(%Packet.Publish{message: message} = publish) do
     fn {socket, client_id} ->
       Logger.info("Publishing to client #{client_id} with msg: #{message}")
-      :gen_tcp.send(socket, Packet.Encode.publish(topic, message))
+      :gen_tcp.send(socket, Packet.encode(publish))
       {:none}
     end
   end

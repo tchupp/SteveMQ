@@ -31,10 +31,10 @@ defmodule Mqtt.Update do
       {:subscription_added, packet_id} ->
         {state, [Broker.Command.send_suback(packet_id)]}
 
-      {:publish_qos0, publish} ->
+      {:publish_qos0, %Packet.Publish{qos: 0} = publish} ->
         {state, [Broker.Command.schedule_publish(publish)]}
 
-      {:publish_qos1, %Packet.Publish{packet_id: packet_id} = publish} ->
+      {:publish_qos1, %Packet.Publish{packet_id: packet_id, qos: 1} = publish} ->
         {
           state,
           [
