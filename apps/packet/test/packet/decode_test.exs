@@ -110,7 +110,7 @@ defmodule Packet.DecodeTest do
           <<11, "hello world">>
 
       {type, _error} = Packet.decode(connect)
-      assert type == :unknown
+      assert type == :connect_error
     end
   end
 

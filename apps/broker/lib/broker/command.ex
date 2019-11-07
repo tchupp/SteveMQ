@@ -130,7 +130,7 @@ defmodule Broker.Command do
     end
   end
 
-  def send_disconnect(socket, error) do
+  def send_disconnect(error) do
     fn _ ->
       Logger.info("error reading tcp socket")
       exit(error)
