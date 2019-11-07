@@ -14,7 +14,7 @@ defmodule Packet.Connect do
             will: Package.Publish.t() | nil
           }
 
-  @opaque decode_result :: {:connect, t} | {:unknown, String.t()}
+  @opaque decode_result :: {:connect, t} | {:connect_error, String.t()}
 
   @enforce_keys [:client_id, :protocol_level, :clean_session, :keep_alive]
   defstruct client_id: nil,
@@ -69,6 +69,6 @@ defmodule Packet.Connect do
   end
 
   def decode(<<_header::8>>, <<_rest::binary>>) do
-    {:unknown, ""}
+    {:connect_error, ""}
   end
 end

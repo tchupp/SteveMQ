@@ -19,6 +19,12 @@ defmodule Mqtt.Update do
           ]
         }
 
+      {:connect_error, error_message} ->
+        {
+          state,
+          [Broker.Command.send_disconnect(error_message)]
+        }
+
       {:subscribe, data} ->
         {state, [Broker.Command.add_subscription(data)]}
 
@@ -47,10 +53,10 @@ defmodule Mqtt.Update do
         {state, [Broker.Command.send_pingresp()]}
 
       {:unknown, error} ->
-        {state, [Broker.Command.send_disconnect(socket, error)]}
+        {state, [Broker.Command.send_disconnect(error)]}
 
       {:error, error} ->
-        {state, [Broker.Command.send_disconnect(socket, error)]}
+        {state, [Broker.Command.send_disconnect(error)]}
 
       _ ->
         {state, []}
