@@ -316,8 +316,9 @@ defmodule Packet.DecodeTest do
           <<0>> <>
           <<"message">>
 
-      {type, _error} = Packet.decode(publish)
-      assert type == :unknown
+      {type, error} = Packet.decode(publish)
+      assert type == :publish_error
+      assert error == "unsupported qos. qos=3"
     end
   end
 

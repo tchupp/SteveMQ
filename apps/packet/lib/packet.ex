@@ -115,7 +115,7 @@ defmodule Packet do
     do: Disconnect.decode(header, payload)
 
   defp parse_packet(<<header::8>>, <<_::binary>> = payload),
-    do: {:unknown, "unknown packet type. type=##{header}"}
+    do: {:unknown, "unknown packet type. type=#{header}"}
 
   defdelegate encode(data), to: Packet.Encodable
 end
