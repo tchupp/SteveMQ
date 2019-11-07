@@ -16,7 +16,11 @@ defmodule Client do
     {:ok, socket} = :gen_tcp.connect('localhost', 1883, opts)
     connect(socket, client_id)
 
-    :ok = :gen_tcp.send(socket, Packet.Encode.publish(topic, message))
+    :ok =
+      :gen_tcp.send(
+        socket,
+        Packet.encode(%Packet.Publish{topic: topic, message: message, qos: 0, retain: false})
+      )
   end
 
   defp connect(socket, client_id) do

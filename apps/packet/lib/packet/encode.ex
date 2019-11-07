@@ -39,16 +39,6 @@ defmodule Packet.Encode do
     packet_type <> remaining_length <> <<packet_id::16, 0>>
   end
 
-  def publish(topic, message) do
-    packet_type = <<3::4, 0::4>>
-    topic_utf8 = utf8(topic)
-    properties_length = <<0>>
-    variable_headers_and_payload = topic_utf8 <> properties_length <> message
-    remaining_length = <<byte_size(variable_headers_and_payload)>>
-
-    packet_type <> remaining_length <> variable_headers_and_payload
-  end
-
   def pingresp() do
     <<13::4, 0::4, 0>>
   end

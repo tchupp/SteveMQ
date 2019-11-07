@@ -170,11 +170,6 @@ defmodule Packet.EncodeTest do
     assert suback == <<144, 3, packet_id::16, 0>>
   end
 
-  test "encodes PUBLISH" do
-    publish = Packet.Encode.publish("a/topic", "hi")
-    assert publish == <<3::4, 0::4, 12, 0, 7, ?a, ?/, ?t, ?o, ?p, ?i, ?c, 0, ?h, ?i>>
-  end
-
   test "encodes a PINGRES" do
     assert Packet.Encode.pingresp() == <<13::4, 0::4, 0>>
   end
