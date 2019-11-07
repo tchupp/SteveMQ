@@ -77,8 +77,8 @@ defmodule Packet.Puback do
   end
 
   defimpl Packet.Encodable do
-    def encode(%Packet.Puback{packet_id: packet_id, status: status})
-        when packet_id in 0x0001..0xFFFF and status == nil do
+    def encode(%Packet.Puback{packet_id: packet_id, status: nil})
+        when packet_id in 0x0001..0xFFFF do
       packet_length = 2
 
       <<4::4, 0::4>> <>

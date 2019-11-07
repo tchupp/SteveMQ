@@ -74,6 +74,56 @@ defmodule Packet.EncodeTest do
     end
   end
 
+  describe "PUBLISH" do
+    property "encodes PUBLISH - qos 0" do
+      check all message <- StreamData.string(:alphanumeric, min_length: 0),
+                topic <- StreamData.string(:alphanumeric, min_length: 1),
+                retain <- StreamData.boolean() do
+        qos_code = 0
+
+        publish = %Packet.Publish{
+          topic: topic,
+          message: message,
+          qos: qos_code,
+          retain: retain
+        }
+
+        assert {:publish_qos0, publish} ==
+                 publish
+                 |> Packet.encode()
+                 |> Packet.decode()
+      end
+    end
+
+    property "encodes PUBLISH - qos 1/2" do
+      publish_qos = [
+        {1, :publish_qos1},
+        {2, :publish_qos2}
+      ]
+
+      check all message <- StreamData.string(:alphanumeric, min_length: 0),
+                topic <- StreamData.string(:alphanumeric, min_length: 1),
+                dup <- StreamData.boolean(),
+                retain <- StreamData.boolean(),
+                packet_id <- StreamData.positive_integer(),
+                {qos_code, qos_key} <- StreamData.member_of(publish_qos) do
+        publish = %Packet.Publish{
+          topic: topic,
+          message: message,
+          qos: qos_code,
+          retain: retain,
+          packet_id: packet_id,
+          dup: dup
+        }
+
+        assert {qos_key, publish} ==
+                 publish
+                 |> Packet.encode()
+                 |> Packet.decode()
+      end
+    end
+  end
+
   test "encodes CONNECT with client id and clean" do
     # fixed header
     # protocol
