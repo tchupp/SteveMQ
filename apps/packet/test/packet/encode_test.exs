@@ -144,4 +144,45 @@ defmodule Packet.EncodeTest do
 
     assert Packet.Encode.utf8(big_string) == <<1, 44>> <> big_string
   end
+
+  describe "variable_length_prefixed" do
+    property "encodes data with variable length prefix - one byte" do
+      check all bytes <- StreamData.binary(min_length: 0, max_length: 127) do
+        assert {byte_size(bytes), 1, bytes} ==
+                 bytes
+                 |> Packet.Encode2.variable_length_prefixed()
+                 |> Packet.Decode.variable_length_prefixed()
+      end
+    end
+
+    property "encodes data with variable length prefix - two byte" do
+      check all bytes <- StreamData.binary(min_length: 128, max_length: 16_383) do
+        assert {byte_size(bytes), 2, bytes} ==
+                 bytes
+                 |> Packet.Encode2.variable_length_prefixed()
+                 |> Packet.Decode.variable_length_prefixed()
+      end
+    end
+
+    property "encodes data with variable length prefix - three byte" do
+      check all bytes <- StreamData.binary(min_length: 16_384, max_length: 2_097_151) do
+        assert {byte_size(bytes), 3, bytes} ==
+                 bytes
+                 |> Packet.Encode2.variable_length_prefixed()
+                 |> Packet.Decode.variable_length_prefixed()
+      end
+    end
+
+    #    This test takes more than 60 seconds to run, probably not needed
+    @tag skip: true
+    property "encodes data with variable length prefix - four byte" do
+      check all bytes <-
+                  StreamData.binary(min_length: 2_097_152, max_length: 268_435_455) do
+        assert {byte_size(bytes), 4, bytes} ==
+                 bytes
+                 |> Packet.Encode2.variable_length_prefixed()
+                 |> Packet.Decode.variable_length_prefixed()
+      end
+    end
+  end
 end

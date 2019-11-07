@@ -28,7 +28,7 @@ defmodule Packet.Decode do
   end
 
   def variable_length_prefixed(bytes) do
-    raise "error parsing variable length int: encountered more than 4 bytes"
+    raise "error decoding variable length int. more than 4 bytes"
   end
 
   def fixed_length_prefixed(<<>>), do: []
