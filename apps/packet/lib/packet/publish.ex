@@ -33,7 +33,7 @@ defmodule Packet.Publish do
             {:publish_qos0, publish_qos0}
             | {:publish_qos1, publish_qos1}
             | {:publish_qos2, publish_qos2}
-            | {:unknown, String.t()}
+            | {:publish_error, String.t()}
 
   @enforce_keys [:topic, :message, :qos, :retain]
   defstruct topic: nil,
@@ -99,7 +99,11 @@ defmodule Packet.Publish do
     }
   end
 
-  def decode(<<_header::8>>, <<_rest::binary>>) do
-    {:unknown, ""}
+  def decode(<<3::4, _dup::1, 3::integer-size(2), _retain::1>>, <<_rest::binary>>) do
+    {:publish_error, "unsupported qos. qos=3"}
+  end
+
+  def decode(<<3::4, _dup::1, _qos::integer-size(2), _retain::1>>, <<rest::binary>>) do
+    {:publish_error, byte_size(rest)}
   end
 end
