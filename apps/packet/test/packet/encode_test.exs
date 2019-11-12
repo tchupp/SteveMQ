@@ -124,6 +124,28 @@ defmodule Packet.EncodeTest do
     end
   end
 
+  describe "PINGREQ" do
+    test "encodes PINGREQ" do
+      pingreq = %Packet.Pingreq{}
+
+      assert {:pingreq, pingreq} ==
+               pingreq
+               |> Packet.encode()
+               |> Packet.decode()
+    end
+  end
+
+  describe "PINGRESP" do
+    test "encodes PINGRESP" do
+      pingresp = %Packet.Pingresp{}
+
+      assert {:pingresp, pingresp} ==
+               pingresp
+               |> Packet.encode()
+               |> Packet.decode()
+    end
+  end
+
   test "encodes CONNECT with client id and clean" do
     # fixed header
     # protocol
@@ -170,10 +192,6 @@ defmodule Packet.EncodeTest do
     assert suback == <<144, 3, packet_id::16, 0>>
   end
 
-  test "encodes a PINGRES" do
-    assert Packet.Encode.pingresp() == <<13::4, 0::4, 0>>
-  end
-
   test "encodes handle utf8 string > 255 chars" do
     big_string =
       "123456789012345678901234567890" <>
@@ -187,7 +205,7 @@ defmodule Packet.EncodeTest do
         "123456789012345678901234567890" <>
         "123456789012345678901234567890"
 
-    assert Packet.Encode.utf8(big_string) == <<1, 44>> <> big_string
+    assert Packet.Encode2.fixed_length_prefixed(big_string) == <<1, 44>> <> big_string
   end
 
   describe "variable_length_prefixed" do

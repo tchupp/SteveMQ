@@ -457,9 +457,53 @@ defmodule Packet.DecodeTest do
   end
 
   describe "PINGREQ" do
+    property "decode PINGREQ" do
+      check all variable_header <- StreamData.binary(),
+                payload <- StreamData.binary() do
+        variable_header_length = byte_size(variable_header)
+        payload_length = byte_size(payload)
+
+        packet_length =
+          payload_length +
+            variable_header_length
+
+        pingreq =
+          <<12::4, 0::4>> <>
+            variable_length_int(packet_length) <>
+            <<variable_header::binary>> <>
+            <<payload::binary>>
+
+        assert Packet.decode(pingreq) == {
+                 :pingreq,
+                 %Packet.Pingreq{}
+               }
+      end
+    end
   end
 
-  describe "PINGRES" do
+  describe "PINGRESP" do
+    property "decode PINGRESP" do
+      check all variable_header <- StreamData.binary(),
+                payload <- StreamData.binary() do
+        variable_header_length = byte_size(variable_header)
+        payload_length = byte_size(payload)
+
+        packet_length =
+          payload_length +
+            variable_header_length
+
+        pingresp =
+          <<13::4, 0::4>> <>
+            variable_length_int(packet_length) <>
+            <<variable_header::binary>> <>
+            <<payload::binary>>
+
+        assert Packet.decode(pingresp) == {
+                 :pingresp,
+                 %Packet.Pingresp{}
+               }
+      end
+    end
   end
 
   describe "DISCONNECT" do

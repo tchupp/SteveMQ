@@ -125,7 +125,7 @@ defmodule Broker.Command do
   def send_pingresp() do
     fn {socket, client_id} ->
       Logger.info("sending PINGRESP. client id: #{client_id}")
-      :gen_tcp.send(socket, Packet.Encode.pingresp())
+      :gen_tcp.send(socket, Packet.encode(%Packet.Pingresp{}))
       {:none}
     end
   end

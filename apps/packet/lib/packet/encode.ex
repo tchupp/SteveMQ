@@ -1,6 +1,8 @@
 defmodule Packet.Encode do
   require Logger
 
+  alias Packet.Encode2
+
   def connect(client_id, clean_start) do
     client_id_length = byte_size(client_id)
     remaining_length = client_id_length + 13
@@ -23,7 +25,7 @@ defmodule Packet.Encode do
 
   def subscribe(packet_id, topic_filter) do
     packet_type = <<8::4, 2::4>>
-    filter_utf8 = utf8(topic_filter)
+    filter_utf8 = Encode2.fixed_length_prefixed(topic_filter)
     remaining_length = <<byte_size(filter_utf8) + 3>>
 
     packet_type <>
@@ -37,14 +39,5 @@ defmodule Packet.Encode do
     remaining_length = <<3>>
 
     packet_type <> remaining_length <> <<packet_id::16, 0>>
-  end
-
-  def pingresp() do
-    <<13::4, 0::4, 0>>
-  end
-
-  def utf8(text) do
-    text_length = byte_size(text)
-    <<text_length::16>> <> text
   end
 end
