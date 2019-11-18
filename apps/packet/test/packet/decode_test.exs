@@ -448,6 +448,86 @@ defmodule Packet.DecodeTest do
   end
 
   describe "SUBACK" do
+    property "decode SUBACK - packet identifier" do
+      check all packet_id <- StreamData.positive_integer() do
+        packet_length =
+          2 +
+            1
+
+        suback =
+          <<9::4, 0::4>> <>
+            <<packet_length, packet_id::16, 0>>
+
+        assert Packet.decode(suback) == {
+                 :suback,
+                 %Packet.Suback{
+                   packet_id: packet_id
+                 }
+               }
+      end
+    end
+
+    property "decode SUBACK - acks" do
+      qos_possibilities = [
+        0x00,
+        0x01,
+        0x02,
+        0x80
+      ]
+
+      check all packet_id <- StreamData.positive_integer(),
+                acks <-
+                  StreamData.member_of(qos_possibilities) |> StreamData.list_of() do
+        packet_length =
+          2 +
+            1 +
+            length(acks)
+
+        suback =
+          <<9::4, 0::4>> <>
+            <<packet_length, packet_id::16, 0>> <>
+            for ack <- acks, do: <<ack::8>>, into: <<>>
+
+        assert Packet.decode(suback) == {
+                 :suback,
+                 %Packet.Suback{
+                   packet_id: packet_id,
+                   acks: acks |> Enum.map(&suback_ack_to_tuple/1)
+                 }
+               }
+      end
+    end
+
+    property "decode SUBACK - drops unknown acks" do
+      known_qos_possibilities = [
+        0x00,
+        0x01,
+        0x02,
+        0x80
+      ]
+
+      check all packet_id <- StreamData.positive_integer(),
+                ack <- StreamData.byte(),
+                !(ack in known_qos_possibilities) do
+        packet_length =
+          2 +
+            1 +
+            1
+
+        suback =
+          <<9::4, 0::4>> <>
+            <<packet_length, packet_id::16, 0>> <>
+            <<ack>>
+
+        assert Packet.decode(suback) == {
+                 :suback,
+                 %Packet.Suback{
+                   packet_id: packet_id,
+                   acks: []
+                 }
+               }
+      end
+    end
   end
 
   describe "UNSUBSCRIBE" do
@@ -546,6 +626,9 @@ defmodule Packet.DecodeTest do
       end
     end
   end
+
+  defp suback_ack_to_tuple(0x80), do: {:error, :access_denied}
+  defp suback_ack_to_tuple(ack) when ack in 0x00..0x02, do: {:ok, ack}
 
   defp flag(f) when f in [0, nil, false], do: 0
   defp flag(_), do: 1

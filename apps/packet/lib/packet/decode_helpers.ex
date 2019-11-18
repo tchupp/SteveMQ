@@ -33,7 +33,7 @@ defmodule Packet.Decode do
 
   def fixed_length_prefixed(<<>>), do: []
 
-  def fixed_length_prefixed(<<length::big-integer-size(16), payload::binary>>) do
+  def fixed_length_prefixed(<<length::16, payload::binary>>) do
     <<item::binary-size(length), rest::binary>> = payload
     [item] ++ fixed_length_prefixed(rest)
   end

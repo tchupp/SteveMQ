@@ -30,7 +30,7 @@ defmodule Packet.EncodeTest do
   describe "PUBACK" do
     property "encodes PUBACK - short form" do
       check all packet_id <- StreamData.positive_integer() do
-        actual = %Packet.Puback{
+        initial = %Packet.Puback{
           packet_id: packet_id,
           status: nil
         }
@@ -41,7 +41,7 @@ defmodule Packet.EncodeTest do
         }
 
         assert {:puback, expected} ==
-                 actual
+                 initial
                  |> Packet.encode()
                  |> Packet.decode()
       end
@@ -124,6 +124,55 @@ defmodule Packet.EncodeTest do
     end
   end
 
+  describe "SUBACK" do
+    property "encodes SUBACK - zero acks" do
+      check all packet_id <- StreamData.positive_integer() do
+        initial = %Packet.Suback{
+          packet_id: packet_id
+        }
+
+        expected = %Packet.Suback{
+          packet_id: packet_id,
+          acks: []
+        }
+
+        assert {:suback, expected} ==
+                 initial
+                 |> Packet.encode()
+                 |> Packet.decode()
+      end
+    end
+
+    property "encodes SUBACK - many acks" do
+      qos_possibilities = [
+        0x00,
+        0x01,
+        0x02,
+        0x80
+      ]
+
+      check all packet_id <- StreamData.positive_integer(),
+                acks <-
+                  StreamData.member_of(qos_possibilities)
+                  |> StreamData.list_of() do
+        initial = %Packet.Suback{
+          packet_id: packet_id,
+          acks: acks |> Enum.map(&suback_ack_to_tuple(&1))
+        }
+
+        expected = %Packet.Suback{
+          packet_id: packet_id,
+          acks: acks |> Enum.map(&suback_ack_to_tuple(&1))
+        }
+
+        assert {:suback, expected} ==
+                 initial
+                 |> Packet.encode()
+                 |> Packet.decode()
+      end
+    end
+  end
+
   describe "PINGREQ" do
     test "encodes PINGREQ" do
       pingreq = %Packet.Pingreq{}
@@ -185,13 +234,6 @@ defmodule Packet.EncodeTest do
                <<0, 7, "a/topic">>
   end
 
-  test "encodes SUBACK" do
-    packet_id = 45
-    suback = Packet.Encode.suback(packet_id)
-
-    assert suback == <<144, 3, packet_id::16, 0>>
-  end
-
   test "encodes handle utf8 string > 255 chars" do
     big_string =
       "123456789012345678901234567890" <>
@@ -248,4 +290,7 @@ defmodule Packet.EncodeTest do
       end
     end
   end
+
+  defp suback_ack_to_tuple(0x80), do: {:error, :access_denied}
+  defp suback_ack_to_tuple(ack) when ack in 0x00..0x02, do: {:ok, ack}
 end

@@ -33,11 +33,4 @@ defmodule Packet.Encode do
       <<packet_id::16, 0>> <>
       filter_utf8
   end
-
-  def suback(packet_id) do
-    packet_type = <<144>>
-    remaining_length = <<3>>
-
-    packet_type <> remaining_length <> <<packet_id::16, 0>>
-  end
 end

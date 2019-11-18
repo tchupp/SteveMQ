@@ -86,7 +86,7 @@ defmodule Broker.Command do
   def send_suback(packet_id) do
     fn {socket, _} ->
       Logger.info("sending SUBACK")
-      :gen_tcp.send(socket, Packet.Encode.suback(packet_id))
+      :gen_tcp.send(socket, Packet.encode(%Packet.Suback{packet_id: packet_id, acks: []}))
       {:none}
     end
   end
