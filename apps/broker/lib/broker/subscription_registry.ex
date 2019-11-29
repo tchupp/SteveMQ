@@ -9,24 +9,24 @@ defmodule Broker.SubscriptionRegistry do
     Agent.start_link(fn -> {%{}, %{}} end, name: name)
   end
 
-  def add_subscription(registry, client_id, topic) do
+  def add_subscription(registry, client_id, topic_filter) do
     Agent.update(
       registry,
       fn {topic_to_clients, client_to_topics} ->
-        other_subscribers = Map.get(topic_to_clients, topic)
+        other_subscribers = Map.get(topic_to_clients, topic_filter)
 
         topic_to_clients =
           case other_subscribers do
-            nil -> Map.put(topic_to_clients, topic, [client_id])
-            some -> Map.put(topic_to_clients, topic, some ++ [client_id])
+            nil -> Map.put(topic_to_clients, topic_filter, [client_id])
+            some -> Map.put(topic_to_clients, topic_filter, some ++ [client_id])
           end
 
         other_subscribed_topics = Map.get(client_to_topics, client_id)
 
         client_to_topics =
           case other_subscribed_topics do
-            nil -> Map.put(client_to_topics, client_id, [topic])
-            some -> Map.put(client_to_topics, client_id, some ++ [topic])
+            nil -> Map.put(client_to_topics, client_id, [topic_filter])
+            some -> Map.put(client_to_topics, client_id, some ++ [topic_filter])
           end
 
         {topic_to_clients, client_to_topics}

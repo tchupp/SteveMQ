@@ -69,29 +69,45 @@ defmodule Broker.Command do
     end
   end
 
-  def add_subscription(%{topic_filter: topic_filter, packet_id: packet_id}) do
+  def add_subscription(%Packet.Subscribe{topics: topics, packet_id: packet_id}) do
     fn {_, client_id} ->
-      Logger.info("received SUBSCRIBE to #{topic_filter}")
+      for {topic_filter, qos} <- topics do
+        Logger.info(
+          "received SUBSCRIBE. client_id=#{client_id} topic_filter=#{topic_filter} qos=#{qos}"
+        )
 
-      Broker.SubscriptionRegistry.add_subscription(
-        Broker.SubscriptionRegistry,
-        client_id,
-        topic_filter
-      )
+        Broker.SubscriptionRegistry.add_subscription(
+          Broker.SubscriptionRegistry,
+          client_id,
+          topic_filter
+        )
+      end
 
-      {:subscription_added, packet_id}
+      {
+        :subscription_added,
+        %{
+          acks: topics |> Enum.map(fn {_topic, qos} -> {:ok, qos} end),
+          packet_id: packet_id
+        }
+      }
     end
   end
 
-  def send_suback(packet_id) do
-    fn {socket, _} ->
-      Logger.info("sending SUBACK")
-      :gen_tcp.send(socket, Packet.encode(%Packet.Suback{packet_id: packet_id, acks: []}))
+  def send_suback(%{acks: acks, packet_id: packet_id}) do
+    fn {socket, client_id} ->
+      Logger.info("sending SUBACK. client_id=#{client_id} packet_id=#{packet_id}")
+
+      suback = %Packet.Suback{
+        packet_id: packet_id,
+        acks: acks
+      }
+
+      :gen_tcp.send(socket, Packet.encode(suback))
       {:none}
     end
   end
 
-  def schedule_publish(%Packet.Publish{topic: topic, message: message} = publish) do
+  def schedule_publish(%Packet.Publish{topic: topic} = publish) do
     fn {_, client_id} ->
       Logger.info("received PUBLISH to #{topic} from client: #{client_id}")
 
@@ -138,8 +154,8 @@ defmodule Broker.Command do
   end
 
   def close_connection() do
-    fn _ ->
-      Logger.info("connection closed. shutting down process")
+    fn {_socket, client_id} ->
+      Logger.info("connection closed. client_id=#{client_id}")
       exit(:shutdown)
     end
   end

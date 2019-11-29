@@ -124,6 +124,26 @@ defmodule Packet.EncodeTest do
     end
   end
 
+  describe "SUBSCRIBE" do
+    property "encodes SUBSCRIBE" do
+      check all packet_id <- StreamData.positive_integer(),
+                topics <-
+                  {StreamData.binary(), StreamData.member_of(0..2)}
+                  |> StreamData.tuple()
+                  |> StreamData.list_of(min_length: 1) do
+        subscribe = %Packet.Subscribe{
+          topics: topics,
+          packet_id: packet_id
+        }
+
+        assert {:subscribe, subscribe} ==
+                 subscribe
+                 |> Packet.encode()
+                 |> Packet.decode()
+      end
+    end
+  end
+
   describe "SUBACK" do
     property "encodes SUBACK - zero acks" do
       check all packet_id <- StreamData.positive_integer() do
@@ -219,19 +239,6 @@ defmodule Packet.EncodeTest do
 
     assert :binary.at(dirty_start_connect, 9) == 0
     assert :binary.at(clean_start_connect, 9) == 2
-  end
-
-  test "encodes SUBSCRIBE" do
-    # fixed header
-    # packet id
-    # properties length
-    # payload
-    assert Packet.Encode.subscribe(47, "a/topic") ==
-             <<8::4, 2::4>> <>
-               <<12>> <>
-               <<0, 47>> <>
-               <<0>> <>
-               <<0, 7, "a/topic">>
   end
 
   test "encodes handle utf8 string > 255 chars" do

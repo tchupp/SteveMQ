@@ -6,7 +6,7 @@ defmodule Mqtt.Update do
     {socket, _client_id} = state
 
     case event do
-      {:connect, %Packet.Connect{client_id: client_id, clean_session: clean_session} = packet} ->
+      {:connect, %Packet.Connect{client_id: client_id, clean_session: clean_session}} ->
         {
           {socket, client_id},
           [
@@ -25,16 +25,16 @@ defmodule Mqtt.Update do
           [Broker.Command.send_disconnect(error_message)]
         }
 
-      {:subscribe, data} ->
-        {state, [Broker.Command.add_subscription(data)]}
+      {:subscribe, %Packet.Subscribe{} = packet} ->
+        {state, [Broker.Command.add_subscription(packet)]}
 
-      {:subscription_added, packet_id} ->
-        {state, [Broker.Command.send_suback(packet_id)]}
+      {:subscription_added, %{acks: _acks, packet_id: _packet_id} = data} ->
+        {state, [Broker.Command.send_suback(data)]}
 
       {:publish_qos0, %Packet.Publish{qos: 0} = publish} ->
         {state, [Broker.Command.schedule_publish(publish)]}
 
-      {:publish_qos1, %Packet.Publish{packet_id: packet_id, qos: 1} = publish} ->
+      {:publish_qos1, %Packet.Publish{qos: 1, packet_id: packet_id} = publish} ->
         {
           state,
           [

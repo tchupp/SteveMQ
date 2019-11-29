@@ -3,26 +3,74 @@ defmodule Packet.Subscribe do
   require Logger
 
   alias Packet.Decode
+  alias Packet.Encode2, as: Encode
 
-  @opaque decode_result :: {:subscribe, %{topic_filter: binary(), packet_id: binary()}}
+  @type qos :: 0 | 1 | 2
+  @type topic :: {binary(), qos}
+  @type topics :: [topic]
+
+  @opaque t :: %__MODULE__{
+            packet_id: Packet.package_identifier(),
+            topics: topics()
+          }
+
+  @opaque decode_result :: {:subscribe, t} | {:subscribe_error, String.t()}
+
+  defstruct packet_id: nil,
+            topics: []
 
   @spec decode(<<_::8>>, binary()) :: decode_result
-  def decode(<<8::4, 2::4>>, <<packet_id::16, rest::binary>>) do
-    {properties_length, _prop_length_size, rest} = Decode.variable_length_prefixed(rest)
-
-    <<
-      _properties::binary-size(properties_length),
-      topic_filter_length::16,
-      topic_filter::binary-size(topic_filter_length),
-      _::binary
-    >> = rest
+  def decode(<<8::4, 0::1, 0::1, 1::1, 0::1>>, <<packet_id::16, rest::binary>>) do
+    {_properties_length, _prop_length_size, payload} = Decode.variable_length_prefixed(rest)
 
     {
       :subscribe,
-      %{
-        topic_filter: topic_filter,
+      %Packet.Subscribe{
+        topics: decode_topics(payload),
         packet_id: packet_id
       }
     }
+  end
+
+  defp decode_topics(<<>>), do: []
+
+  defp decode_topics(<<length::16, rest::binary>>) do
+    <<topic::binary-size(length), _flags::6, qos::2, rest::binary>> = rest
+
+    case qos do
+      3 -> [] ++ decode_topics(rest)
+      _ -> [{topic, qos}] ++ decode_topics(rest)
+    end
+  end
+
+  defimpl Packet.Encodable do
+    def encode(
+          %Packet.Subscribe{
+            packet_id: packet_id,
+            topics: [{<<_topic_filter::binary>>, qos} | _]
+          } = subscribe
+        )
+        when packet_id in 0x0001..0xFFFF do
+      encoded_topics =
+        for {topic_filter, qos} <- subscribe.topics,
+            do: <<byte_size(topic_filter)::16, topic_filter::binary, 0::6, qos::2>>,
+            into: <<>>
+
+      encoded_properties = <<>>
+
+      packet_length =
+        2 +
+          1 + byte_size(encoded_properties) +
+          byte_size(encoded_topics)
+
+      <<8::4, 0::1, 0::1, 1::1, 0::1>> <>
+        Encode.variable_length_int(packet_length) <>
+        <<packet_id::16>> <>
+        <<0>> <>
+        encoded_topics
+    end
+
+    defp flag(f) when f in [0, nil, false], do: 0
+    defp flag(_), do: 1
   end
 end

@@ -350,7 +350,7 @@ defmodule Packet.DecodeTest do
 
         puback =
           <<4::4, 0::4>> <>
-            <<packet_length::8>> <>
+            variable_length_int(packet_length) <>
             <<packet_id::16>>
 
         {:puback, %Packet.Puback{packet_id: actual_packet_id, status: actual_status}} =
@@ -382,7 +382,7 @@ defmodule Packet.DecodeTest do
 
         puback =
           <<4::4, 0::4>> <>
-            <<packet_length::8>> <>
+            variable_length_int(packet_length) <>
             <<1::16>> <>
             <<reason_code::8>> <>
             <<0::8>>
@@ -394,21 +394,25 @@ defmodule Packet.DecodeTest do
     end
 
     property "decodes PUBACK - unknown statuses" do
+      known_statuses = [
+        0x00,
+        0x10,
+        0x80,
+        0x83,
+        0x87,
+        0x90,
+        0x91,
+        0x97,
+        0x99
+      ]
+
       check all reason_code <- StreamData.byte(),
-                reason_code != 0x00,
-                reason_code != 0x10,
-                reason_code != 0x80,
-                reason_code != 0x83,
-                reason_code != 0x87,
-                reason_code != 0x90,
-                reason_code != 0x91,
-                reason_code != 0x97,
-                reason_code != 0x99 do
+                !(reason_code in known_statuses) do
         packet_length = 4
 
         puback =
           <<4::4, 0::4>> <>
-            <<packet_length::8>> <>
+            variable_length_int(packet_length) <>
             <<1::16>> <>
             <<reason_code::8>> <>
             <<0::8>>
@@ -431,19 +435,66 @@ defmodule Packet.DecodeTest do
   end
 
   describe "SUBSCRIBE" do
-    test "parses SUBSCRIBE" do
-      packet_id = 123
+    property "decode SUBSCRIBE - packet_id" do
+      check all packet_id <- StreamData.positive_integer(),
+                topics <-
+                  {StreamData.binary(), StreamData.member_of(0..2)}
+                  |> StreamData.tuple()
+                  |> StreamData.list_of(min_length: 1) do
+        encoded_topics =
+          for {topic, qos} <- topics,
+              do: <<byte_size(topic)::16, topic::binary, 0::6, qos::2>>,
+              into: <<>>
 
-      subscribe =
-        <<8::4, 2::4>> <>
-          <<14, packet_id::16, 0, 0, 9>> <>
-          <<?t, ?e, ?s, ?t, ?T, ?o, ?p, ?i, ?c, 0>>
+        # packet id size
+        packet_length = 2 + 1 + byte_size(encoded_topics)
 
-      {type, packet} = Packet.decode(subscribe)
+        subscribe =
+          <<8::4, 2::4>> <>
+            variable_length_int(packet_length) <>
+            <<packet_id::16>> <>
+            <<0>> <>
+            encoded_topics
 
-      assert type == :subscribe
-      assert packet[:topic_filter] == "testTopic"
-      assert packet[:packet_id] == packet_id
+        assert Packet.decode(subscribe) == {
+                 :subscribe,
+                 %Packet.Subscribe{
+                   topics: topics,
+                   packet_id: packet_id
+                 }
+               }
+      end
+    end
+
+    property "decode SUBSCRIBE - ignores topics with qos 3" do
+      check all packet_id <- StreamData.positive_integer(),
+                topics <-
+                  {StreamData.binary(), StreamData.member_of([3])}
+                  |> StreamData.tuple()
+                  |> StreamData.list_of(min_length: 1) do
+        encoded_topics =
+          for {topic, qos} <- topics,
+              do: <<byte_size(topic)::16, topic::binary, 0::6, qos::2>>,
+              into: <<>>
+
+        # packet id size
+        packet_length = 2 + 1 + byte_size(encoded_topics)
+
+        subscribe =
+          <<8::4, 2::4>> <>
+            variable_length_int(packet_length) <>
+            <<packet_id::16>> <>
+            <<0>> <>
+            encoded_topics
+
+        assert Packet.decode(subscribe) == {
+                 :subscribe,
+                 %Packet.Subscribe{
+                   topics: [],
+                   packet_id: packet_id
+                 }
+               }
+      end
     end
   end
 
