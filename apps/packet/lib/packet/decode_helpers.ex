@@ -27,7 +27,7 @@ defmodule Packet.Decode do
     {variable_int, 4, data}
   end
 
-  def variable_length_prefixed(bytes) do
+  def variable_length_prefixed(_bytes) do
     raise "error decoding variable length int. more than 4 bytes"
   end
 

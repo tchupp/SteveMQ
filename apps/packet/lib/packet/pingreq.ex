@@ -17,7 +17,7 @@ defmodule Packet.Pingreq do
   end
 
   defimpl Packet.Encodable do
-    def encode(%Packet.Pingreq{} = t) do
+    def encode(%Packet.Pingreq{}) do
       <<12::4, 0::4, 0::8>>
     end
   end

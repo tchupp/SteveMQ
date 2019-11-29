@@ -63,7 +63,7 @@ defmodule Packet do
             | Packet.Unsubscribe.decode_result()
 
   @spec decode(binary()) :: decode_result
-  def decode(<<header::binary-size(1), data::binary>> = bytes) do
+  def decode(<<header::binary-size(1), data::binary>>) do
     {length, _size, data} = Decode.variable_length_prefixed(data)
 
     case data do
@@ -114,7 +114,7 @@ defmodule Packet do
   defp parse_packet(<<14::4, _::4>> = header, <<_::binary>> = payload),
     do: Disconnect.decode(header, payload)
 
-  defp parse_packet(<<header::8>>, <<_::binary>> = payload),
+  defp parse_packet(<<header::8>>, <<_::binary>>),
     do: {:unknown, "unknown packet type. type=#{header}"}
 
   defdelegate encode(data), to: Packet.Encodable
