@@ -49,7 +49,7 @@ defmodule Mqtt.Update do
       {:connection_closed} ->
         {state, [Broker.Command.close_connection()]}
 
-      {:pingreq} ->
+      {:pingreq, %Packet.Pingreq{}} ->
         {state, [Broker.Command.send_pingresp()]}
 
       {:unknown, error} ->

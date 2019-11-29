@@ -5,7 +5,7 @@ defmodule Mqtt.UpdateTest do
 
   test "pingreq returns pingresp command" do
     mississippi = {:hi, :bob}
-    {state, commands} = Mqtt.Update.update({:pingreq}, mississippi)
+    {state, commands} = Mqtt.Update.update({:pingreq, %Packet.Pingreq{}}, mississippi)
 
     assert state == mississippi
     assert Enum.at(commands, 0) == Broker.Command.send_pingresp()

@@ -44,6 +44,23 @@ defmodule BrokerTest do
            }
   end
 
+  test "PINGREQ flow", %{socket: socket} do
+    connect = <<16, 24, 0, 4, "MQTT", 5, 2, 0, 60, 0, 0, 11, "hello", 32, "world">>
+
+    {:connack, packet} = send_and_recv(socket, connect)
+
+    assert packet == %Packet.Connack{
+             session_present?: false,
+             status: :accepted
+           }
+
+    encoded_pingreq = Packet.encode(%Packet.Pingreq{})
+
+    {:pingresp, packet} = send_and_recv(socket, encoded_pingreq)
+
+    assert packet == %Packet.Pingresp{}
+  end
+
   test "CONNACKs with error code when bad CONNECT is sent", %{socket: socket} do
     bad_header_flags = 4
     connect = <<1::4, bad_header_flags::4, 0, 0, 0>>
