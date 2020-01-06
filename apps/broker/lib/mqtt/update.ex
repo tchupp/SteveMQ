@@ -1,14 +1,14 @@
 defmodule Mqtt.Update do
   require Logger
 
-  # update(event, state) -> state, [command]
+  @doc """
+    update(event, state) -> state, [command]
+  """
   def update(event, state) do
-    {socket, _client_id} = state
-
     case event do
       {:connect, %Packet.Connect{client_id: client_id, clean_session: clean_session}} ->
         {
-          {socket, client_id},
+          %{state | client_id: client_id},
           [
             Broker.Command.register_clientid(client_id, self()),
             case clean_session do
@@ -36,11 +36,8 @@ defmodule Mqtt.Update do
 
       {:publish_qos1, %Packet.Publish{qos: 1, packet_id: packet_id} = publish} ->
         {
-          state,
-          [
-            Broker.Command.send_puback(packet_id),
-            Broker.Command.schedule_publish(publish)
-          ]
+          put_in(state.in_flight_pubs, state.in_flight_pubs ++ [packet_id]),
+          [Broker.Command.schedule_publish(publish)]
         }
 
       {:disconnect} ->
@@ -63,7 +60,8 @@ defmodule Mqtt.Update do
     end
   end
 
-  def left <|> right, do: compose(left, right)
+  def left
+      <|> right, do: compose(left, right)
 
   defp compose(f, g) when is_function(g) do
     fn arg -> compose(g, f.(arg)).(arg) end
@@ -73,3 +71,5 @@ defmodule Mqtt.Update do
     f.(arg)
   end
 end
+
+

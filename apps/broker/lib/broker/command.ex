@@ -2,6 +2,7 @@ defmodule Broker.Command do
   require Logger
 
   alias Packet.Connack
+  alias Mqtt.Update.State
 
   @doc """
     - Return {:none} from commands to report no events
@@ -44,11 +45,11 @@ defmodule Broker.Command do
   end
 
   def send_connack({_, session_present?: session_present?}) do
-    fn {socket, _} ->
+    fn state ->
       Logger.info("Sending CONNACK, session present: #{session_present?}")
 
       :gen_tcp.send(
-        socket,
+        state.socket,
         Packet.encode(%Connack{session_present?: session_present?, status: :accepted})
       )
 
@@ -57,11 +58,11 @@ defmodule Broker.Command do
   end
 
   def send_puback(packet_id) do
-    fn {socket, _} ->
+    fn state ->
       Logger.info("Sending PUBACK. packet_id: #{packet_id}")
 
       :gen_tcp.send(
-        socket,
+        state.socket,
         Packet.encode(%Packet.Puback{packet_id: packet_id, status: {:accepted, :ok}})
       )
 
@@ -70,15 +71,15 @@ defmodule Broker.Command do
   end
 
   def add_subscription(%Packet.Subscribe{topics: topics, packet_id: packet_id}) do
-    fn {_, client_id} ->
+    fn state ->
       for {topic_filter, qos} <- topics do
         Logger.info(
-          "received SUBSCRIBE. client_id=#{client_id} topic_filter=#{topic_filter} qos=#{qos}"
+          "received SUBSCRIBE. client_id=#{state.client_id} topic_filter=#{topic_filter} qos=#{qos}"
         )
 
         Broker.SubscriptionRegistry.add_subscription(
           Broker.SubscriptionRegistry,
-          client_id,
+          state.client_id,
           topic_filter
         )
       end
@@ -86,7 +87,8 @@ defmodule Broker.Command do
       {
         :subscription_added,
         %{
-          acks: topics |> Enum.map(fn {_topic, qos} -> {:ok, qos} end),
+          acks: topics
+                |> Enum.map(fn {_topic, qos} -> {:ok, qos} end),
           packet_id: packet_id
         }
       }
@@ -94,22 +96,22 @@ defmodule Broker.Command do
   end
 
   def send_suback(%{acks: acks, packet_id: packet_id}) do
-    fn {socket, client_id} ->
-      Logger.info("sending SUBACK. client_id=#{client_id} packet_id=#{packet_id}")
+    fn state ->
+      Logger.info("sending SUBACK. client_id=#{state.client_id} packet_id=#{packet_id}")
 
       suback = %Packet.Suback{
         packet_id: packet_id,
         acks: acks
       }
 
-      :gen_tcp.send(socket, Packet.encode(suback))
+      :gen_tcp.send(state.socket, Packet.encode(suback))
       {:none}
     end
   end
 
   def schedule_publish(%Packet.Publish{topic: topic} = publish) do
-    fn {_, client_id} ->
-      Logger.info("received PUBLISH to #{topic} from client: #{client_id}")
+    fn state ->
+      Logger.info("received PUBLISH to #{topic} from client: #{state.client_id}")
 
       subscribers =
         Broker.SubscriptionRegistry.get_subscribers(Broker.SubscriptionRegistry, topic)
@@ -124,38 +126,38 @@ defmodule Broker.Command do
   end
 
   def publish_to_client(%Packet.Publish{message: message} = publish) do
-    fn {socket, client_id} ->
-      Logger.info("Publishing to client #{client_id} with msg: #{message}")
-      :gen_tcp.send(socket, Packet.encode(publish))
+    fn state ->
+      Logger.info("Publishing to client #{state.client_id} with msg: #{message}")
+      :gen_tcp.send(state.socket, Packet.encode(publish))
       {:none}
     end
   end
 
   def log_disconnect() do
-    fn {_, client_id} ->
-      Logger.info("received DISCONNECT. client id: #{client_id}")
+    fn state ->
+      Logger.info("received DISCONNECT. client id: #{state.client_id}")
       {:none}
     end
   end
 
   def send_pingresp() do
-    fn {socket, client_id} ->
-      Logger.info("sending PINGRESP. client id: #{client_id}")
-      :gen_tcp.send(socket, Packet.encode(%Packet.Pingresp{}))
+    fn state ->
+      Logger.info("sending PINGRESP. client id: #{state.client_id}")
+      :gen_tcp.send(state.socket, Packet.encode(%Packet.Pingresp{}))
       {:none}
     end
   end
 
   def send_disconnect(error) do
     fn _ ->
-      Logger.info("error reading tcp socket")
+      Logger.warn("error reading tcp socket")
       exit(error)
     end
   end
 
   def close_connection() do
-    fn {_socket, client_id} ->
-      Logger.info("connection closed. client_id=#{client_id}")
+    fn state ->
+      Logger.info("connection closed. client_id=#{state.client_id}")
       exit(:shutdown)
     end
   end
