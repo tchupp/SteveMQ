@@ -1,6 +1,7 @@
 defmodule Broker.Connection do
   use GenServer, restart: :temporary
   require Logger
+  alias Mqtt.Update.State
 
   # client
 
@@ -22,7 +23,7 @@ defmodule Broker.Connection do
   def init(socket) do
     server = self()
     Task.start_link(fn -> read_loop(server, socket) end)
-    {:ok, {socket, :none}}
+    {:ok, %State{socket: socket}}
   end
 
   defp read_loop(server, socket) do

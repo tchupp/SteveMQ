@@ -1,7 +1,12 @@
 defmodule Mqtt.UpdateTest do
   use ExUnit.Case
   import Mqtt.Update
-  @default_state {:a_socket, ""}
+
+  @default_state %Mqtt.Update.State{
+    socket: :a_socket,
+    client_id: "",
+    in_flight_pubs: []
+  }
 
   test "pingreq returns pingresp command" do
     mississippi = {:hi, :bob}
@@ -45,6 +50,23 @@ defmodule Mqtt.UpdateTest do
 
     assert Enum.at(commands, 1) ==
              Broker.Command.continue_session("qwerty") <|> (&Broker.Command.send_connack/1)
+  end
+
+  test "on publish with qos 1, save in-flight packet id and schedule publish" do
+    pub_packet = %Packet.Publish{
+      topic: "a/topic",
+      message: "hello",
+      qos: 1,
+      retain: false,
+      packet_id: 0x0501,
+      dup: false
+    }
+    pub_event = {:publish_qos1, pub_packet}
+
+    {state, commands} = Mqtt.Update.update(pub_event, @default_state)
+
+    assert Enum.at(commands, 0) == Broker.Command.schedule_publish(pub_packet)
+    assert state.in_flight_pubs == [pub_packet.packet_id]
   end
 
   test "compose operator composes functions properly sum/div" do
