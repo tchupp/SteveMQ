@@ -61,6 +61,7 @@ defmodule Mqtt.UpdateTest do
       packet_id: 0x0501,
       dup: false
     }
+
     pub_event = {:publish_qos1, pub_packet}
 
     {state, commands} = Mqtt.Update.update(pub_event, @default_state)
