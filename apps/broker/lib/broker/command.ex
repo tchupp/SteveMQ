@@ -2,7 +2,6 @@ defmodule Broker.Command do
   require Logger
 
   alias Packet.Connack
-  alias Mqtt.Update.State
 
   @doc """
     - Return {:none} from commands to report no events
@@ -74,7 +73,9 @@ defmodule Broker.Command do
     fn state ->
       for {topic_filter, qos} <- topics do
         Logger.info(
-          "received SUBSCRIBE. client_id=#{state.client_id} topic_filter=#{topic_filter} qos=#{qos}"
+          "received SUBSCRIBE. client_id=#{state.client_id} topic_filter=#{topic_filter} qos=#{
+            qos
+          }"
         )
 
         Broker.SubscriptionRegistry.add_subscription(
@@ -87,8 +88,9 @@ defmodule Broker.Command do
       {
         :subscription_added,
         %{
-          acks: topics
-                |> Enum.map(fn {_topic, qos} -> {:ok, qos} end),
+          acks:
+            topics
+            |> Enum.map(fn {_topic, qos} -> {:ok, qos} end),
           packet_id: packet_id
         }
       }

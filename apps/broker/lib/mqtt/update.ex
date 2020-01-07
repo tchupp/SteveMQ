@@ -61,7 +61,8 @@ defmodule Mqtt.Update do
   end
 
   def left
-      <|> right, do: compose(left, right)
+      <|> right,
+      do: compose(left, right)
 
   defp compose(f, g) when is_function(g) do
     fn arg -> compose(g, f.(arg)).(arg) end
@@ -71,5 +72,3 @@ defmodule Mqtt.Update do
     f.(arg)
   end
 end
-
-
