@@ -1,4 +1,5 @@
 defmodule Mqtt.Subscription do
+  require Logger
 
   def add_subscription(client_id, topic_filter, pid) do
     {_, :ok} =
@@ -20,4 +21,19 @@ defmodule Mqtt.Subscription do
       end
     end)
   end
+
+  def mark_offline(client_id) do
+    {:atomic, results} = :mnesia.transaction(fn ->
+      [{_, client_id, topic_filter, _pid}] = :mnesia.wread({Subscription, client_id})
+      :mnesia.write({Subscription, client_id, topic_filter, :none})
+    end)
+  end
+
+  def mark_online(client_id, pid) do
+    {:atomic, results} = :mnesia.transaction(fn ->
+      [{_, client_id, topic_filter, _pid}] = :mnesia.wread({Subscription, client_id})
+      :mnesia.write({Subscription, client_id, topic_filter, pid})
+    end)
+  end
+
 end
