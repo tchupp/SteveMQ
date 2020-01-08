@@ -8,21 +8,26 @@ defmodule Mqtt.QueuedMessageTest do
   end
 
   test "saves queued message payloads" do
-    id = QueuedMessage.store_payload({"somestuff"}, 3)
-    payload = QueuedMessage.get_payload(id)
-    assert payload == {"somestuff"}
+    pub_id = make_ref()
+    QueuedMessage.store_payload(pub_id, {"a payload"}, "bob")
+
+    payload = QueuedMessage.get_payload(pub_id)
+    assert payload == {"a payload"}
   end
 
   test "deletes payloads once ref_count reaches zero" do
-    id = QueuedMessage.store_payload({"somestuff"}, 3)
-    payload = QueuedMessage.get_payload(id)
+    pub_id = make_ref()
+    QueuedMessage.store_payload(pub_id, {"somestuff"}, "client1")
+    QueuedMessage.store_payload(pub_id, {"somestuff"}, "client2")
+    QueuedMessage.store_payload(pub_id, {"somestuff"}, "client3")
 
-    QueuedMessage.mark_delivered(id)
-    QueuedMessage.mark_delivered(id)
+    QueuedMessage.mark_delivered(pub_id, "client1")
+    QueuedMessage.mark_delivered(pub_id, "client2")
+    payload = QueuedMessage.get_payload(pub_id)
     assert payload == {"somestuff"}
 
-    QueuedMessage.mark_delivered(id)
-    payload = QueuedMessage.get_payload(id)
+    QueuedMessage.mark_delivered(pub_id, "client3")
+    payload = QueuedMessage.get_payload(pub_id)
     assert payload == nil
   end
 
