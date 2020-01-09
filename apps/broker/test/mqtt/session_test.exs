@@ -20,4 +20,19 @@ defmodule Mqtt.SessionTest do
            ]
   end
 
+  test "continue session returns existing session" do
+    Session.new_session("bob")
+    Session.queue_message("bob", 2, topic: "carl/topic", qos: 1)
+
+    existing_session = Session.continue_session("bob")
+
+    assert existing_session == {%Session{client_id: "bob", inbox: [{2 , topic: "carl/topic", qos: 1}]}, session_present?: true}
+  end
+
+  test "continue session starts new session if one doesn't exist" do
+    new_session = Session.continue_session("nobody")
+
+    assert new_session == {%Session{client_id: "nobody", inbox: []}, session_present?: false}
+  end
+
 end
