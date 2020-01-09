@@ -7,6 +7,18 @@ defmodule Mqtt.Session do
     {_, :ok} = :mnesia.transaction(fn ->
       :mnesia.write({Session, client_id, []})
     end)
+    %Mqtt.Session{client_id: client_id}
+  end
+
+  def continue_session(client_id) do
+    {:atomic, results} = :mnesia.transaction(fn ->
+      :mnesia.read({Session, client_id})
+    end)
+
+    case results do
+      [] -> {new_session(client_id), session_present?: false}
+      [{_, client_id, inbox}] -> {%Mqtt.Session{client_id: client_id, inbox: inbox}, session_present?: true}
+    end
   end
 
   def queue_message(client_id, pub_id, topic: topic, qos: qos) do
