@@ -12,7 +12,7 @@ defmodule Mqtt.SubscriptionTest do
 
     subscribers = Subscription.get_subscribers("topic/filter")
 
-    assert subscribers == [{:connected, "bob", self()}]
+    assert subscribers == [{:online, "bob", self()}]
   end
 
   test "updates subscriptions with online/offline" do

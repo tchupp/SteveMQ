@@ -5,7 +5,7 @@ defmodule Mqtt.UpdateTest do
   @default_state %Mqtt.Update.State{
     socket: :a_socket,
     client_id: "",
-    in_flight_pubs: []
+    not_ackd_pubs: []
   }
 
   test "pingreq returns pingresp command" do
@@ -29,9 +29,7 @@ defmodule Mqtt.UpdateTest do
     {_, commands} = Mqtt.Update.update(connect, @default_state)
 
     assert Enum.at(commands, 0) == Broker.Command.register_clientid("qwerty", self())
-
-    assert Enum.at(commands, 1) ==
-             Broker.Command.start_new_session("qwerty") <|> (&Broker.Command.send_connack/1)
+    assert Enum.at(commands, 1) == Broker.Command.start_new_session("qwerty")
   end
 
   test "on connect without clean session, register client id and continue session" do
@@ -47,9 +45,7 @@ defmodule Mqtt.UpdateTest do
     {_, commands} = Mqtt.Update.update(connect, @default_state)
 
     assert Enum.at(commands, 0) == Broker.Command.register_clientid("qwerty", self())
-
-    assert Enum.at(commands, 1) ==
-             Broker.Command.continue_session("qwerty") <|> (&Broker.Command.send_connack/1)
+    assert Enum.at(commands, 1) == Broker.Command.continue_session("qwerty")
   end
 
   test "on publish with qos 1, save in-flight packet id and schedule publish" do
@@ -67,7 +63,7 @@ defmodule Mqtt.UpdateTest do
     {state, commands} = Mqtt.Update.update(pub_event, @default_state)
 
     assert Enum.at(commands, 0) == Broker.Command.schedule_publish(pub_packet)
-    assert state.in_flight_pubs == [pub_packet.packet_id]
+    assert state.not_ackd_pubs == [pub_packet.packet_id]
   end
 
   test "compose operator composes functions properly sum/div" do
