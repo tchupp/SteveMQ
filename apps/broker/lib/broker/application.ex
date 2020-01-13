@@ -5,7 +5,6 @@ defmodule Broker.Application do
     port = String.to_integer(System.get_env("PORT") || "1883")
 
     children = [
-      {Broker.SubscriptionRegistry, name: Broker.SubscriptionRegistry},
       {Broker.Connection.Supervisor, name: Broker.Connection.Supervisor},
       Supervisor.child_spec({Task, fn -> Broker.accept(port) end}, restart: :permanent)
     ]
