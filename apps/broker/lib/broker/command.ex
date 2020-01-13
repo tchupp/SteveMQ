@@ -21,29 +21,20 @@ defmodule Broker.Command do
   def start_new_session(client_id) do
     fn _ ->
       Logger.debug("Starting new session for #{client_id}")
-      Broker.SessionRepo.new_session(client_id, :never)
-      {:session_started, session_present?: false}
+      session = Mqtt.Session.new_session(client_id)
+      {:session_retrieved, session_present?: false, session: session}
     end
   end
 
   def continue_session(client_id) do
     fn _ ->
       Logger.debug("Continuing session for #{client_id}")
-      session = Broker.SessionRepo.get_session(client_id)
-
-      case session do
-        [] ->
-          Logger.debug("Found no session for #{client_id}")
-          Broker.SessionRepo.new_session(client_id, :never)
-          {:session_started, session_present?: false}
-
-        _ ->
-          {:session_started, session_present?: true}
-      end
+      {session, session_present?: session_present?} = Mqtt.Session.continue_session(client_id)
+      {:session_retrieved, session_present?: session_present?, session: session}
     end
   end
 
-  def send_connack({_, session_present?: session_present?}) do
+  def send_connack(session_present?) do
     fn state ->
       Logger.info("Sending CONNACK, session present: #{session_present?}")
 
@@ -53,6 +44,12 @@ defmodule Broker.Command do
       )
 
       {:none}
+    end
+  end
+
+  def schedule_puback(packet_id) do
+    fn state ->
+
     end
   end
 
@@ -69,6 +66,17 @@ defmodule Broker.Command do
     end
   end
 
+  def deliver_queued_message({pub_id, _}) do
+    Logger.debug("delivering Qd message")
+
+    fn state ->
+      case Mqtt.QueuedMessage.get_payload(pub_id) do
+        nil -> {:no_publish_delivered}
+        publish -> publish_to_client(publish).(state)
+      end
+    end
+  end
+
   def add_subscription(%Packet.Subscribe{topics: topics, packet_id: packet_id}) do
     fn state ->
       for {topic_filter, qos} <- topics do
@@ -78,11 +86,7 @@ defmodule Broker.Command do
           }"
         )
 
-        Broker.SubscriptionRegistry.add_subscription(
-          Broker.SubscriptionRegistry,
-          state.client_id,
-          topic_filter
-        )
+        Mqtt.Subscription.add_subscription(state.client_id, topic_filter, self())
       end
 
       {
@@ -111,33 +115,54 @@ defmodule Broker.Command do
     end
   end
 
-  def schedule_publish(%Packet.Publish{topic: topic} = publish) do
+  def schedule_publish(%Packet.Publish{topic: topic, qos: qos, packet_id: packet_id} = publish) do
     fn state ->
       Logger.info("received PUBLISH to #{topic} from client: #{state.client_id}")
 
-      subscribers =
-        Broker.SubscriptionRegistry.get_subscribers(Broker.SubscriptionRegistry, topic)
+      subscribers = Mqtt.Subscription.get_subscribers(topic)
+      pub_id = make_ref()
 
       for subscriber <- subscribers do
-        pid = Broker.Connection.Registry.get_pid(Broker.Connection.Registry, subscriber)
-        Broker.Connection.schedule_cmd_external(pid, publish_to_client(publish))
+        case subscriber do
+          {:online, client_id, pid} ->
+            Broker.Connection.schedule_cmd_external(pid, publish_to_client(publish))
+
+          {:offline, client_id} ->
+            Mqtt.QueuedMessage.store_payload(pub_id, publish, client_id)
+
+            Mqtt.Session.queue_message(client_id,
+              pub_id: pub_id,
+              packet_id: packet_id,
+              topic: topic,
+              qos: qos
+            )
+        end
       end
 
-      {:none}
+      {:publish_acknowledged, publish}
     end
   end
 
   def publish_to_client(%Packet.Publish{message: message} = publish) do
     fn state ->
-      Logger.info("Publishing to client #{state.client_id} with msg: #{message}")
+      Logger.debug("Publishing to client #{state.client_id} with msg: #{message}")
       :gen_tcp.send(state.socket, Packet.encode(publish))
       {:none}
     end
   end
 
-  def log_disconnect() do
+  def mark_delivered(packet_id) do
     fn state ->
-      Logger.info("received DISCONNECT. client id: #{state.client_id}")
+      Logger.debug("Received puback with packet_id #{packet_id} from #{state.client_id}")
+
+      Mqtt.Session.mark_delivered(state.client_id, packet_id)
+      {:none}
+    end
+  end
+
+  def log_disconnect(reason) do
+    fn state ->
+      Logger.info("received DISCONNECT. client id: #{state.client_id}, reason: #{reason}")
       {:none}
     end
   end

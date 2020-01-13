@@ -15,9 +15,23 @@ defmodule Mqtt.Update do
               true -> Broker.Command.start_new_session(client_id)
               false -> Broker.Command.continue_session(client_id)
             end
-            <|> (&Broker.Command.send_connack/1)
           ]
         }
+
+      {:session_retrieved, session_present?: session_present?, session: %Mqtt.Session{} = session} ->
+        case session.inbox do
+          [] ->
+            {state, [Broker.Command.send_connack(session_present?)]}
+
+          queued_messages ->
+            {
+              state,
+              [
+                Broker.Command.send_connack(session_present?),
+                Broker.Command.deliver_queued_message(List.first(queued_messages))
+              ]
+            }
+        end
 
       {:connect_error, error_message} ->
         {
@@ -36,12 +50,21 @@ defmodule Mqtt.Update do
 
       {:publish_qos1, %Packet.Publish{qos: 1, packet_id: packet_id} = publish} ->
         {
-          put_in(state.in_flight_pubs, state.in_flight_pubs ++ [packet_id]),
+          put_in(state.not_ackd_pubs, state.not_ackd_pubs ++ [packet_id]),
           [Broker.Command.schedule_publish(publish)]
         }
 
-      {:disconnect} ->
-        {state, [Broker.Command.log_disconnect()]}
+      {:publish_acknowledged, %Packet.Publish{packet_id: packet_id} = publish} ->
+        {
+          put_in(state.not_ackd_pubs, state.not_ackd_pubs -- [packet_id]),
+          [Broker.Command.send_puback(publish.packet_id)]
+        }
+
+      {:puback, %Packet.Puback{packet_id: packet_id, status: status}} ->
+        {state, [Broker.Command.mark_delivered(packet_id)]}
+
+      {:disconnect, reason} ->
+        {state, [Broker.Command.log_disconnect(reason)]}
 
       {:connection_closed} ->
         {state, [Broker.Command.close_connection()]}
@@ -55,8 +78,19 @@ defmodule Mqtt.Update do
       {:error, error} ->
         {state, [Broker.Command.send_disconnect(error)]}
 
-      _ ->
+      :ok ->
+        Logger.warn("wat")
+
+      {event_type} ->
+        _ = Logger.info("Unhandled event. event_type=#{event_type}")
         {state, []}
+
+      {event_type, _} ->
+        _ = Logger.info("Unhandled event. event_type=#{event_type}")
+        {state, []}
+
+      thing ->
+        Logger.warn("also wat #{thing}")
     end
   end
 

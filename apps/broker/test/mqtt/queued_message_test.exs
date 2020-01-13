@@ -30,5 +30,4 @@ defmodule Mqtt.QueuedMessageTest do
     payload = QueuedMessage.get_payload(pub_id)
     assert payload == nil
   end
-
 end
