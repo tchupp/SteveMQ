@@ -47,12 +47,6 @@ defmodule Broker.Command do
     end
   end
 
-  def schedule_puback(packet_id) do
-    fn state ->
-
-    end
-  end
-
   def send_puback(packet_id) do
     fn state ->
       Logger.info("Sending PUBACK. packet_id: #{packet_id}")
@@ -124,7 +118,7 @@ defmodule Broker.Command do
 
       for subscriber <- subscribers do
         case subscriber do
-          {:online, client_id, pid} ->
+          {:online, _client_id, pid} ->
             Broker.Connection.schedule_cmd_external(pid, publish_to_client(publish))
 
           {:offline, client_id} ->
