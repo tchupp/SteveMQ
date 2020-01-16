@@ -10,7 +10,7 @@ defmodule Mqtt.Update do
         {
           %{state | client_id: client_id},
           [
-            Broker.Command.register_clientid(client_id, self()),
+            Broker.Command.register_client_id(client_id, self()),
             case clean_session do
               true -> Broker.Command.start_new_session(client_id)
               false -> Broker.Command.continue_session(client_id)
@@ -19,19 +19,14 @@ defmodule Mqtt.Update do
         }
 
       {:session_retrieved, session_present?: session_present?, session: %Mqtt.Session{} = session} ->
-        case session.inbox do
-          [] ->
-            {state, [Broker.Command.send_connack(session_present?)]}
-
-          queued_messages ->
-            {
-              state,
-              [
-                Broker.Command.send_connack(session_present?),
-                Broker.Command.deliver_queued_message(List.first(queued_messages))
-              ]
-            }
-        end
+        {
+          state,
+          [Broker.Command.send_connack(session_present?)] ++
+            case session.inbox do
+              [] -> []
+              [first | rest] -> [Broker.Command.deliver_queued_message(first)]
+            end
+        }
 
       {:connect_error, error_message} ->
         {
