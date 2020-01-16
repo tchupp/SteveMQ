@@ -109,26 +109,38 @@ defmodule Broker.Command do
     end
   end
 
-  def schedule_publish(%Packet.Publish{topic: topic, qos: qos, packet_id: packet_id} = publish) do
+  def schedule_publish(%Packet.Publish{qos: 0, packet_id: nil, topic: topic} = publish) do
+    fn _state ->
+      for subscriber <- Mqtt.Subscription.get_subscribers(topic) do
+        case subscriber do
+          {:online, _client_id, pid} ->
+            Broker.Connection.schedule_cmd_external(pid, publish_to_client(publish))
+        end
+      end
+
+      {:publish_scheduled, publish}
+    end
+  end
+
+  def schedule_publish(%Packet.Publish{qos: 1, packet_id: packet_id, topic: topic} = publish) do
     fn state ->
       Logger.info("received PUBLISH to #{topic} from client: #{state.client_id}")
 
-      subscribers = Mqtt.Subscription.get_subscribers(topic)
-      pub_id = make_ref()
-
-      for subscriber <- subscribers do
+      for subscriber <- Mqtt.Subscription.get_subscribers(topic) do
         case subscriber do
           {:online, _client_id, pid} ->
             Broker.Connection.schedule_cmd_external(pid, publish_to_client(publish))
 
           {:offline, client_id} ->
+            pub_id = make_ref()
+
             Mqtt.QueuedMessage.store_payload(pub_id, publish, client_id)
 
             Mqtt.Session.queue_message(client_id,
               pub_id: pub_id,
               packet_id: packet_id,
               topic: topic,
-              qos: qos
+              qos: 1
             )
         end
       end
