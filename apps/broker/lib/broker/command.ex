@@ -10,9 +10,9 @@ defmodule Broker.Command do
     - Commands return closures with arity:1, which accept connection state
   """
 
-  def register_clientid(client_id, pid) do
+  def register_client_id(client_id, pid) do
     fn _ ->
-      Logger.debug("Registering clientId: #{client_id}")
+      Logger.debug("Registering client. client_id=#{client_id}")
       Broker.Connection.Registry.register(Broker.Connection.Registry, client_id, pid)
       {:none}
     end
@@ -20,7 +20,7 @@ defmodule Broker.Command do
 
   def start_new_session(client_id) do
     fn _ ->
-      Logger.debug("Starting new session for #{client_id}")
+      Logger.debug("Starting new session. client_id=#{client_id}")
       session = Mqtt.Session.new_session(client_id)
       {:session_retrieved, session_present?: false, session: session}
     end
@@ -28,15 +28,19 @@ defmodule Broker.Command do
 
   def continue_session(client_id) do
     fn _ ->
-      Logger.debug("Continuing session for #{client_id}")
       {session, session_present?: session_present?} = Mqtt.Session.continue_session(client_id)
+      Logger.debug("Continuing session.\
+               client_id=#{client_id} pending_publishes=#{length(session.inbox)}")
+
       {:session_retrieved, session_present?: session_present?, session: session}
     end
   end
 
   def send_connack(session_present?) do
     fn state ->
-      Logger.info("Sending CONNACK, session present: #{session_present?}")
+      Logger.info(
+        "Sending CONNACK. client_id=#{state.client_id} session_present=#{session_present?}"
+      )
 
       :gen_tcp.send(
         state.socket,
@@ -49,7 +53,7 @@ defmodule Broker.Command do
 
   def send_puback(packet_id) do
     fn state ->
-      Logger.info("Sending PUBACK. packet_id: #{packet_id}")
+      Logger.info("Sending PUBACK. client_id=#{state.client_id} packet_id=#{packet_id}")
 
       :gen_tcp.send(
         state.socket,
@@ -61,9 +65,9 @@ defmodule Broker.Command do
   end
 
   def deliver_queued_message({pub_id, _}) do
-    Logger.debug("delivering Qd message")
-
     fn state ->
+      Logger.debug("Delivering queued message. client_id=#{state.client_id}")
+
       case Mqtt.QueuedMessage.get_payload(pub_id) do
         nil -> {:no_publish_delivered}
         publish -> publish_to_client(publish).(state)
@@ -75,9 +79,8 @@ defmodule Broker.Command do
     fn state ->
       for {topic_filter, qos} <- topics do
         Logger.info(
-          "received SUBSCRIBE. client_id=#{state.client_id} topic_filter=#{topic_filter} qos=#{
-            qos
-          }"
+          "received SUBSCRIBE.\
+                       client_id=#{state.client_id} topic_filter=#{topic_filter} qos=#{qos}"
         )
 
         Mqtt.Subscription.add_subscription(state.client_id, topic_filter, self())
@@ -124,7 +127,7 @@ defmodule Broker.Command do
 
   def schedule_publish(%Packet.Publish{qos: 1, packet_id: packet_id, topic: topic} = publish) do
     fn state ->
-      Logger.info("received PUBLISH to #{topic} from client: #{state.client_id}")
+      Logger.info("Received PUBLISH. topic=#{topic} client_id=#{state.client_id}")
 
       for subscriber <- Mqtt.Subscription.get_subscribers(topic) do
         case subscriber do
@@ -149,9 +152,10 @@ defmodule Broker.Command do
     end
   end
 
-  def publish_to_client(%Packet.Publish{message: message} = publish) do
+  def publish_to_client(%Packet.Publish{qos: qos, packet_id: packet_id} = publish) do
     fn state ->
-      Logger.debug("Publishing to client #{state.client_id} with msg: #{message}")
+      Logger.debug("Publishing to client.\
+               client_id=#{state.client_id} packet_id=#{packet_id} qos=#{qos}")
       :gen_tcp.send(state.socket, Packet.encode(publish))
       {:none}
     end
@@ -159,10 +163,11 @@ defmodule Broker.Command do
 
   def mark_delivered(packet_id) do
     fn state ->
-      Logger.debug("Received puback with packet_id #{packet_id} from #{state.client_id}")
+      Logger.debug("Received PUBACK. client_id=#{state.client_id} packet_id=#{packet_id}")
 
       Mqtt.Session.mark_delivered(state.client_id, packet_id)
-      {:none}
+      inbox = Mqtt.Session.get_queued_messages(state.client_id)
+      {:queued_messages_found, inbox}
     end
   end
 

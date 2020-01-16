@@ -4,7 +4,7 @@ defmodule Broker do
   def accept(port) do
     {:ok, socket} = :gen_tcp.listen(port, [:binary, active: false, reuseaddr: true])
 
-    Logger.info("Accepting connections on port #{port}")
+    Logger.info("Accepting connections. port=#{port}")
     loop_acceptor(socket)
   end
 

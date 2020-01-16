@@ -28,7 +28,7 @@ defmodule Mqtt.UpdateTest do
 
     {_, commands} = Mqtt.Update.update(connect, @default_state)
 
-    assert Enum.at(commands, 0) == Broker.Command.register_clientid("qwerty", self())
+    assert Enum.at(commands, 0) == Broker.Command.register_client_id("qwerty", self())
     assert Enum.at(commands, 1) == Broker.Command.start_new_session("qwerty")
   end
 
@@ -44,7 +44,7 @@ defmodule Mqtt.UpdateTest do
 
     {_, commands} = Mqtt.Update.update(connect, @default_state)
 
-    assert Enum.at(commands, 0) == Broker.Command.register_clientid("qwerty", self())
+    assert Enum.at(commands, 0) == Broker.Command.register_client_id("qwerty", self())
     assert Enum.at(commands, 1) == Broker.Command.continue_session("qwerty")
   end
 
