@@ -54,10 +54,10 @@ defmodule Mqtt.Update do
           [Broker.Command.schedule_publish(publish)]
         }
 
-      {:publish_acknowledged, %Packet.Publish{packet_id: packet_id} = publish} ->
+      {:publish_acknowledged, %Packet.Publish{qos: 1, packet_id: packet_id} = publish} ->
         {
           put_in(state.not_ackd_pubs, state.not_ackd_pubs -- [packet_id]),
-          [Broker.Command.send_puback(publish.packet_id)]
+          [Broker.Command.send_puback(packet_id)]
         }
 
       {:puback, %Packet.Puback{packet_id: packet_id, status: status}} ->
