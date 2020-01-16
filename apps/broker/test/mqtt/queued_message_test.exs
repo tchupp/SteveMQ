@@ -21,12 +21,12 @@ defmodule Mqtt.QueuedMessageTest do
     QueuedMessage.store_payload(pub_id, {"somestuff"}, "client2")
     QueuedMessage.store_payload(pub_id, {"somestuff"}, "client3")
 
-    QueuedMessage.mark_delivered(pub_id, "client1")
-    QueuedMessage.mark_delivered(pub_id, "client2")
+    :ok = QueuedMessage.mark_delivered("client1", pub_id)
+    :ok = QueuedMessage.mark_delivered("client2", pub_id)
     payload = QueuedMessage.get_payload(pub_id)
     assert payload == {"somestuff"}
 
-    QueuedMessage.mark_delivered(pub_id, "client3")
+    :ok = QueuedMessage.mark_delivered("client3", pub_id)
     payload = QueuedMessage.get_payload(pub_id)
     assert payload == nil
   end

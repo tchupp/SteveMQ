@@ -69,7 +69,7 @@ defmodule Broker.Command do
       Logger.debug("Delivering queued message. client_id=#{state.client_id}")
 
       case Mqtt.QueuedMessage.get_payload(pub_id) do
-        nil -> {:no_publish_delivered}
+        nil -> {:no_publish_delivered, pub_id}
         publish -> publish_to_client(publish).(state)
       end
     end
@@ -78,10 +78,8 @@ defmodule Broker.Command do
   def add_subscription(%Packet.Subscribe{topics: topics, packet_id: packet_id}) do
     fn state ->
       for {topic_filter, qos} <- topics do
-        Logger.info(
-          "received SUBSCRIBE.\
-                       client_id=#{state.client_id} topic_filter=#{topic_filter} qos=#{qos}"
-        )
+        Logger.info("received SUBSCRIBE.\
+                       client_id=#{state.client_id} topic_filter=#{topic_filter} qos=#{qos}")
 
         Mqtt.Subscription.add_subscription(state.client_id, topic_filter, self())
       end
@@ -128,6 +126,7 @@ defmodule Broker.Command do
   def schedule_publish(%Packet.Publish{qos: 1, packet_id: packet_id, topic: topic} = publish) do
     fn state ->
       Logger.info("Received PUBLISH. topic=#{topic} client_id=#{state.client_id}")
+      pub_id = make_ref()
 
       for subscriber <- Mqtt.Subscription.get_subscribers(topic) do
         case subscriber do
@@ -135,16 +134,15 @@ defmodule Broker.Command do
             Broker.Connection.schedule_cmd_external(pid, publish_to_client(publish))
 
           {:offline, client_id} ->
-            pub_id = make_ref()
+            :ok = Mqtt.QueuedMessage.store_payload(pub_id, publish, client_id)
 
-            Mqtt.QueuedMessage.store_payload(pub_id, publish, client_id)
-
-            Mqtt.Session.queue_message(client_id,
-              pub_id: pub_id,
-              packet_id: packet_id,
-              topic: topic,
-              qos: 1
-            )
+            :ok =
+              Mqtt.Session.queue_message(client_id,
+                pub_id: pub_id,
+                packet_id: packet_id,
+                topic: topic,
+                qos: 1
+              )
         end
       end
 
@@ -155,17 +153,31 @@ defmodule Broker.Command do
   def publish_to_client(%Packet.Publish{qos: qos, packet_id: packet_id} = publish) do
     fn state ->
       Logger.debug("Publishing to client.\
-               client_id=#{state.client_id} packet_id=#{packet_id} qos=#{qos}")
+              client_id=#{state.client_id} packet_id=#{packet_id} qos=#{qos}")
       :gen_tcp.send(state.socket, Packet.encode(publish))
       {:none}
     end
   end
 
   def mark_delivered(packet_id) do
-    fn state ->
-      Logger.debug("Received PUBACK. client_id=#{state.client_id} packet_id=#{packet_id}")
+    fn %Mqtt.Update.State{client_id: client_id} ->
+      Logger.debug("Received PUBACK. client_id=#{client_id} packet_id=#{packet_id}")
 
-      Mqtt.Session.mark_delivered(state.client_id, packet_id)
+      {:ok, pub_id} = Mqtt.Session.mark_delivered(client_id, packet_id)
+      :ok = Mqtt.QueuedMessage.mark_delivered(client_id, pub_id)
+
+      inbox = Mqtt.Session.get_queued_messages(client_id)
+      {:queued_messages_found, inbox}
+    end
+  end
+
+  def mark_delivered_by_pub_id(pub_id) do
+    fn state ->
+      Logger.debug("Payload not found. client_id=#{state.client_id}")
+
+      {:ok, pub_id} = Mqtt.Session.mark_delivered_by_pub_id(state.client_id, pub_id)
+      :ok = Mqtt.QueuedMessage.mark_delivered(state.client_id, pub_id)
+
       inbox = Mqtt.Session.get_queued_messages(state.client_id)
       {:queued_messages_found, inbox}
     end

@@ -58,6 +58,18 @@ defmodule Mqtt.Update do
       {:puback, %Packet.Puback{packet_id: packet_id, status: status}} ->
         {state, [Broker.Command.mark_delivered(packet_id)]}
 
+      {:no_publish_delivered, pub_id} ->
+        {state, [Broker.Command.mark_delivered_by_pub_id(pub_id)]}
+
+      {:queued_messages_found, inbox} ->
+        {
+          state,
+          case inbox do
+            [] -> []
+            [first | rest] -> [Broker.Command.deliver_queued_message(first)]
+          end
+        }
+
       {:disconnect, reason} ->
         {state, [Broker.Command.log_disconnect(reason)]}
 
