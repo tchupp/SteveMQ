@@ -35,6 +35,8 @@ defmodule Mqtt.Session do
         {Session, client_id, inbox ++ [{pub_id, packet_id: packet_id, topic: topic, qos: qos}]}
       )
     end)
+
+    :ok
   end
 
   def mark_delivered(client_id, packet_id) do
@@ -55,6 +57,21 @@ defmodule Mqtt.Session do
 
             pub_id
         end
+      end)
+
+    {:ok, pub_id}
+  end
+
+  def mark_delivered_by_pub_id(client_id, pub_id) do
+    {:atomic, pub_id} =
+      :mnesia.transaction(fn ->
+        [{_, _client_id, inbox}] = :mnesia.wread({Session, client_id})
+
+        :mnesia.write({
+          Session,
+          client_id,
+          Enum.filter(inbox, fn {id, _} -> id != pub_id end)
+        })
       end)
 
     {:ok, pub_id}
