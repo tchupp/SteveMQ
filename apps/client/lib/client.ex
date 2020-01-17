@@ -3,37 +3,71 @@ defmodule Client do
     opts = [:binary, active: false]
     {:ok, socket} = :gen_tcp.connect('localhost', 1883, opts)
 
-    connect(socket, client_id)
-    subscribe(socket, topic_filter, qos)
+    :ok = connect(socket, client_id, false)
+    :ok = subscribe(socket, topic_filter, qos)
 
     {:ok, packet} = :gen_tcp.recv(socket, 0, 2000)
     {:publish_qos0, %Packet.Publish{message: message}} = Packet.decode(packet)
     message
   end
 
-  def publish(client_id, message, topic) do
+  def publish(client_id, message, topic, qos) when qos == 0 do
     opts = [:binary, active: false]
     {:ok, socket} = :gen_tcp.connect('localhost', 1883, opts)
-    connect(socket, client_id)
+    :ok = connect(socket, client_id, false)
 
     :ok =
       :gen_tcp.send(
         socket,
-        Packet.encode(%Packet.Publish{topic: topic, message: message, qos: 0, retain: false})
+        Packet.encode(%Packet.Publish{
+          topic: topic,
+          message: message,
+          qos: qos,
+          retain: false
+        })
       )
+
+    :ok
   end
 
-  defp connect(socket, client_id) do
-    :ok = :gen_tcp.send(socket, Packet.Encode.connect(client_id, true))
+  def publish(client_id, message, topic, qos) do
+    opts = [:binary, active: false]
+    {:ok, socket} = :gen_tcp.connect('localhost', 1883, opts)
+    :ok = connect(socket, client_id, false)
+
+    :ok =
+      :gen_tcp.send(
+        socket,
+        Packet.encode(%Packet.Publish{
+          packet_id: 1,
+          topic: topic,
+          message: message,
+          qos: qos,
+          retain: false
+        })
+      )
+
+    {:ok, puback} = :gen_tcp.recv(socket, 0, 1000)
+    {:puback, %Packet.Puback{packet_id: 1, status: {:accepted, :ok}}} = Packet.decode(puback)
+
+    :ok
+  end
+
+  def connect(socket, client_id, clean_start) do
+    :ok = :gen_tcp.send(socket, Packet.Encode.connect(client_id, clean_start))
     {:ok, <<32, 3, 0, 0, 0>>} = :gen_tcp.recv(socket, 0, 1000)
+
+    :ok
   end
 
-  defp subscribe(socket, topic_filter, _qos) do
+  defp subscribe(socket, topic_filter, qos) do
     encoded_subscribe =
-      Packet.encode(%Packet.Subscribe{packet_id: 123, topics: [{topic_filter, 0}]})
+      Packet.encode(%Packet.Subscribe{packet_id: 123, topics: [{topic_filter, qos}]})
 
     :ok = :gen_tcp.send(socket, encoded_subscribe)
     {:ok, suback} = :gen_tcp.recv(socket, 0, 1000)
-    {:suback, _} = Packet.decode(suback)
+    {:suback, %Packet.Suback{packet_id: 123, acks: [{:ok, 0}]}} = Packet.decode(suback)
+
+    :ok
   end
 end
