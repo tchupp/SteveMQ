@@ -24,7 +24,7 @@ defmodule Mqtt.Update do
           [Broker.Command.send_connack(session_present?)] ++
             case session.inbox do
               [] -> []
-              [first | rest] -> [Broker.Command.deliver_queued_message(first)]
+              [first | _] -> [Broker.Command.deliver_queued_message(first)]
             end
         }
 
@@ -43,19 +43,19 @@ defmodule Mqtt.Update do
       {:publish_qos0, %Packet.Publish{qos: 0} = publish} ->
         {state, [Broker.Command.schedule_publish(publish)]}
 
-      {:publish_qos1, %Packet.Publish{qos: 1, packet_id: packet_id} = publish} ->
+      {:publish_qos1, %Packet.Publish{} = publish} ->
         {
-          put_in(state.not_ackd_pubs, state.not_ackd_pubs ++ [packet_id]),
+          state,
           [Broker.Command.schedule_publish(publish)]
         }
 
-      {:publish_acknowledged, %Packet.Publish{qos: 1, packet_id: packet_id} = publish} ->
+      {:publish_acknowledged, %Packet.Publish{qos: 1, packet_id: packet_id}} ->
         {
-          put_in(state.not_ackd_pubs, state.not_ackd_pubs -- [packet_id]),
+          state,
           [Broker.Command.send_puback(packet_id)]
         }
 
-      {:puback, %Packet.Puback{packet_id: packet_id, status: status}} ->
+      {:puback, %Packet.Puback{packet_id: packet_id}} ->
         {state, [Broker.Command.mark_delivered(packet_id)]}
 
       {:no_publish_delivered, pub_id} ->
@@ -66,7 +66,7 @@ defmodule Mqtt.Update do
           state,
           case inbox do
             [] -> []
-            [first | rest] -> [Broker.Command.deliver_queued_message(first)]
+            [first | _] -> [Broker.Command.deliver_queued_message(first)]
           end
         }
 
@@ -85,9 +85,6 @@ defmodule Mqtt.Update do
       {:error, error} ->
         {state, [Broker.Command.send_disconnect(error)]}
 
-      :ok ->
-        Logger.warn("wat")
-
       {event_type} ->
         _ = Logger.info("Unhandled event. event_type=#{event_type}")
         {state, []}
@@ -96,8 +93,9 @@ defmodule Mqtt.Update do
         _ = Logger.info("Unhandled event. event_type=#{event_type}")
         {state, []}
 
-      thing ->
-        Logger.warn("also wat #{thing}")
+      _ ->
+        _ = Logger.info("Update received malformed event")
+        {state, []}
     end
   end
 

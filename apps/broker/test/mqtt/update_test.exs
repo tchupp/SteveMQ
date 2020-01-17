@@ -4,8 +4,7 @@ defmodule Mqtt.UpdateTest do
 
   @default_state %Mqtt.Update.State{
     socket: :a_socket,
-    client_id: "",
-    not_ackd_pubs: []
+    client_id: ""
   }
 
   test "pingreq returns pingresp command" do
@@ -62,8 +61,7 @@ defmodule Mqtt.UpdateTest do
 
     {state, commands} = Mqtt.Update.update(pub_event, @default_state)
 
-    assert Enum.at(commands, 0) == Broker.Command.schedule_publish(pub_packet)
-    assert state.not_ackd_pubs == [pub_packet.packet_id]
+    assert commands == [Broker.Command.schedule_publish(pub_packet)]
   end
 
   test "compose operator composes functions properly sum/div" do
