@@ -22,8 +22,12 @@ defmodule Client do
     GenServer.call(server, {:subscribe, topic_filter, qos})
   end
 
-  def publish(server, message, topic, qos \\ 0) do
+  def publish(server, topic, message, qos \\ 0) do
     GenServer.call(server, {:publish, message, topic, qos})
+  end
+
+  def stop(server) do
+    GenServer.stop(server)
   end
 
   # server
@@ -31,18 +35,43 @@ defmodule Client do
   @impl true
   def init(%ClientOptions{} = opts) do
     socket = connect(opts)
-    server = self()
 
+    server = self()
     Task.start_link(fn -> read_loop(server, socket) end)
 
     {:ok, %Client{client_id: opts.client_id, socket: socket}}
   end
 
+  defp setup_subscriptions(socket, subscriptions) do
+    topics =
+      for subscription <- subscriptions do
+        {subscription.topic_filter, subscription.qos}
+      end
+
+    encoded_subscribe = Packet.encode(%Packet.Subscribe{packet_id: 123, topics: topics})
+    :ok = :gen_tcp.send(socket, encoded_subscribe)
+
+    wait_for_suback(socket, 123)
+  end
+
+  defp wait_for_suback(socket, packet_id) do
+    {:ok, raw_packet} = :gen_tcp.recv(socket, 0)
+
+    case Packet.decode(raw_packet) do
+      {:suback, raw_packet} ->
+        packet = Packet.decode(raw_packet)
+        :ok = receive_packet(server, packet)
+        read_loop(server, socket)
+
+      {:error, :closed} ->
+        Logger.info("client tcp socket closed")
+    end
+  end
+
   defp connect(%ClientOptions{} = opts) do
     {:ok, socket} = :gen_tcp.connect(opts.host, opts.port, [:binary, active: false])
 
-    :ok = :gen_tcp.send(socket, Packet.Encode.connect(opts.client_id, opts.clean_start))
-    {:ok, <<32, 3, 0, 0, 0>>} = :gen_tcp.recv(socket, 0, 1000)
+    :ok = :gen_tcp.send(socket, Packet.Encode.connect(opts.client_id, false))
 
     socket
   end
@@ -86,6 +115,7 @@ defmodule Client do
       Packet.encode(%Packet.Subscribe{packet_id: 123, topics: [{topic_filter, qos}]})
 
     :ok = :gen_tcp.send(state.socket, encoded_subscribe)
+
     {:reply, :ok, state}
   end
 

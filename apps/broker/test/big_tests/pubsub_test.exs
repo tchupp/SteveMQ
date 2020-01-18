@@ -5,22 +5,20 @@ defmodule BigTests.PubSubTest do
   setup do
     Application.stop(:broker)
     :ok = Application.start(:broker)
-    Robot.clear()
+    Robot.start_link()
   end
 
   test "happy case sub/pub qos0" do
-    Robot.for(:subscriber)
-    |> Robot.connect()
-    |> Robot.subscribe("a/topic")
+    Robot.start(:subscriber)
+    |> Robot.subscribe("test/topic")
 
-    Robot.for(:publisher)
-    |> Robot.connect(clean_start: true)
+    Robot.start(:publisher)
     |> Robot.publish(topic: "test/topic", message: "hi there", qos: 0)
-    |> Robot.disconnect()
+    |> Robot.stop()
 
-    Robot.for(:subscriber)
+    Robot.resume(:subscriber)
     |> Robot.assert_received(topic: "test/topic", message: "hi there", qos: 0)
-    |> Robot.disconnect()
+    |> Robot.stop()
   end
 
   test "client with clean start receives publishes while connected" do
