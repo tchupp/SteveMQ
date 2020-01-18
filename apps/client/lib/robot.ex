@@ -3,17 +3,10 @@ defmodule Robot do
 
   defstruct socket: nil, client_id: nil, topic: nil, qos: nil, received_publishes: []
 
-  def new_subscriber(client_id: client_id, topic: topic, qos: qos) do
-    %Robot{
-      socket: nil,
-      client_id: client_id,
-      topic: topic,
-      qos: qos,
-      received_publishes: []
-    }
+  def for(_name) do
   end
 
-  def connect(%Robot{client_id: client_id, socket: socket, topic: topic} = robot_context,
+  def connect(%Robot{client_id: client_id, topic: topic} = robot_context,
         clean_start: clean_start
       ) do
     opts = [:binary, active: false]
