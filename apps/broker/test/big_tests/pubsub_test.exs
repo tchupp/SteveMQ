@@ -5,12 +5,12 @@ defmodule BigTests.PubSubTest do
   setup do
     Application.stop(:broker)
     :ok = Application.start(:broker)
-    Robot.start_link()
+    :ok = Robot.start_link()
   end
 
   test "happy case sub/pub qos0" do
     Robot.start(:subscriber)
-    |> Robot.subscribe("test/topic")
+    |> Robot.subscribe(topic: "test/topic", qos: 1)
 
     Robot.start(:publisher)
     |> Robot.publish(topic: "test/topic", message: "hi there", qos: 0)
@@ -22,51 +22,43 @@ defmodule BigTests.PubSubTest do
   end
 
   test "client with clean start receives publishes while connected" do
-    Robot.for(:subscriber)
-    |> Robot.connect(clean_start: true)
+    Robot.start(:subscriber)
     |> Robot.subscribe(topic: "test/topic", qos: 1)
 
-    Robot.for(:publisher)
-    |> Robot.connect(clean_start: true)
+    Robot.start(:publisher)
     |> Robot.publish(topic: "test/topic", message: "hi there", qos: 1)
-    |> Robot.disconnect()
+    |> Robot.stop()
 
-    Robot.for(:subscriber)
+    Robot.resume(:subscriber)
     |> Robot.assert_received(topic: "test/topic", message: "hi there", qos: 1)
-    |> Robot.disconnect()
+    |> Robot.stop()
   end
 
   test "client with clean start does not receive publishes from old session" do
-    Robot.for(:subscriber)
-    |> Robot.connect()
+    Robot.start(:subscriber)
     |> Robot.subscribe(topic: "test/topic", qos: 1)
-    |> Robot.disconnect()
+    |> Robot.stop()
 
-    Robot.for(:publisher)
-    |> Robot.connect()
+    Robot.start(:publisher)
     |> Robot.publish(topic: "test/topic", message: "hi there", qos: 1)
-    |> Robot.disconnect()
+    |> Robot.stop()
 
-    Robot.for(:subscriber)
-    |> Robot.connect(clean_start: true)
+    Robot.start(:subscriber, clean_start: false)
     |> Robot.assert_received_count(0)
-    |> Robot.disconnect()
+    |> Robot.stop()
   end
 
   test "client with clean start as false receives publishes while disconnected" do
-    Robot.for(:subscriber)
-    |> Robot.connect()
+    Robot.start(:subscriber)
     |> Robot.subscribe(topic: "test/topic", qos: 1)
-    |> Robot.disconnect()
+    |> Robot.stop()
 
-    Robot.for(:publisher)
-    |> Robot.connect()
+    Robot.start(:publisher)
     |> Robot.publish(topic: "test/topic", message: "hi there", qos: 1)
-    |> Robot.disconnect()
+    |> Robot.stop()
 
-    Robot.for(:subscriber)
-    |> Robot.connect(clean_start: false)
+    Robot.start(:subscriber, clean_start: false)
     |> Robot.assert_received(topic: "test/topic", message: "hi there", qos: 1)
-    |> Robot.disconnect()
+    |> Robot.stop()
   end
 end

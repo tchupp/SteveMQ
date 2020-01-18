@@ -8,5 +8,6 @@ defmodule ClientOptions do
             subscriptions: [subscription]
           }
 
+  @enforce_keys [:client_id]
   defstruct client_id: nil, clean_start: true, host: 'localhost', port: 1883, subscriptions: []
 end
