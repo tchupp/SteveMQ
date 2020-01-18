@@ -30,7 +30,7 @@ defmodule Client do
 
   @impl true
   def init(%ClientOptions{} = opts) do
-    socket = connect(opts.client_id, opts.clean_start)
+    socket = connect(opts)
     server = self()
 
     Task.start_link(fn -> read_loop(server, socket) end)
@@ -38,10 +38,10 @@ defmodule Client do
     {:ok, %Client{client_id: opts.client_id, socket: socket}}
   end
 
-  defp connect(client_id, clean_start) do
-    {:ok, socket} = :gen_tcp.connect('localhost', 1883, [:binary, active: false])
+  defp connect(%ClientOptions{} = opts) do
+    {:ok, socket} = :gen_tcp.connect(opts.host, opts.port, [:binary, active: false])
 
-    :ok = :gen_tcp.send(socket, Packet.Encode.connect(client_id, clean_start))
+    :ok = :gen_tcp.send(socket, Packet.Encode.connect(opts.client_id, opts.clean_start))
     {:ok, <<32, 3, 0, 0, 0>>} = :gen_tcp.recv(socket, 0, 1000)
 
     socket
@@ -64,12 +64,13 @@ defmodule Client do
   @impl true
   def handle_call({:receive_packet, packet}, _from, state) do
     case packet do
-      {:publish_qos1, _} ->
-        Logger.error("getting a pub packet")
+      {:publish_qos0, _} ->
         {:reply, :ok, put_in(state.inbox, state.inbox ++ [packet])}
 
-      p ->
-        Logger.error("getting a different packet")
+      {:publish_qos1, _} ->
+        {:reply, :ok, put_in(state.inbox, state.inbox ++ [packet])}
+
+      _ ->
         {:reply, :ok, state}
     end
   end
