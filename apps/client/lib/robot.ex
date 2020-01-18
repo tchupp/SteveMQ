@@ -2,54 +2,70 @@ defmodule Robot do
   import ExUnit.Assertions
   require Logger
 
-  defstruct socket: nil, client_id: nil, topic: nil, qos: nil, received_publishes: []
+  defstruct name: nil
 
   def start_link() do
-    {:ok, _} = Agent.start_link(fn -> %{} end, name: __MODULE__)
+    children = [
+      {Registry, [keys: :unique, name: Client.Bucket]}
+    ]
+
+    opts = [strategy: :one_for_one, name: Robot]
+    {:ok, _} = Supervisor.start_link(children, opts)
+
     :ok
   end
 
-  def start(name, clean_start \\ true) do
-    {:ok, pid} =
-      Client.start_link(%ClientOptions{client_id: Atom.to_string(name), clean_start: clean_start})
+  def start(name) do
+    start(name, clean_start: true)
+  end
 
-    Agent.update(__MODULE__, &Map.put(&1, name, pid))
+  def start(name, clean_start: clean_start) do
+    {:ok, pid} = Client.start_link(%ClientOptions{client_id: name, clean_start: clean_start})
 
-    pid
+    :ok = Client.connect(name, client_id: name, clean_start: clean_start)
+
+    %Robot{name: name}
   end
 
   def resume(name) do
-    pid = Agent.get(__MODULE__, &Map.get(&1, name))
-    pid
+    %Robot{name: name}
   end
 
-  def subscribe(client, topic_filter) do
-    :ok = Client.subscribe(client, topic_filter)
-    client
+  def subscribe(%Robot{name: name} = robot_context, topic: topic_filter, qos: qos) do
+    :ok = Client.subscribe(name, topic_filter: topic_filter, qos: qos)
+    robot_context
   end
 
-  def publish(client, topic: topic, message: message, qos: qos) do
-    :ok = Client.publish(client, topic, message, qos)
-    client
+  def publish(%Robot{name: name} = robot_context, topic: topic, message: message, qos: qos) do
+    :ok = Client.publish(name, topic, message, qos)
+    robot_context
   end
 
-  def stop(client) do
-    Client.stop(client)
-    #    {:ok, _pid} = Agent.update(__MODULE__, &Map.pop(&1, name))
+  def assert_received_count(%Robot{name: name} = robot_context, expected_received_count) do
+    received_publishes = Client.get_messages(name)
+    assert(length(received_publishes) == expected_received_count)
+    robot_context
+  end
+
+  defp via_name(client_id) do
+    Client.Bucket.via_name(__MODULE__, client_id)
+  end
+
+  def stop(%Robot{name: name} = _robot_context) do
+    :ok = Client.stop(name)
+    :ok = Client.Bucket.delete_meta(name)
     :ok
   end
 
   def assert_received(
-        client,
+        %Robot{name: name} = robot_context,
         topic: expected_topic,
         message: expected_message,
         qos: expected_qos
       ) do
     Process.sleep(2000)
 
-    received_publishes = Client.get_messages(client)
-
-    Logger.warn("pub list size: #{length(received_publishes)}")
+    received_publishes = Client.get_messages(name)
 
     found_publish? =
       received_publishes
@@ -59,7 +75,7 @@ defmodule Robot do
 
     assert found_publish? == true
 
-    client
+    robot_context
   end
 
   defp matches_publish?(
@@ -68,20 +84,8 @@ defmodule Robot do
          message: expected_message,
          qos: expected_qos
        ) do
-    Logger.warn(
-      "matches?: #{topic == expected_topic}, #{message == expected_message}, #{
-        qos == expected_qos
-      }, "
-    )
-
     topic == expected_topic &&
       message == expected_message &&
       qos == expected_qos
-  end
-
-  def assert_received_count(client, expected_received_count) do
-    received_publishes = Client.get_messages(client)
-    assert(length(received_publishes) == expected_received_count)
-    client
   end
 end

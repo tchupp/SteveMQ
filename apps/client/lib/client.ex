@@ -2,44 +2,56 @@ defmodule Client do
   use GenServer
   require Logger
 
-  defstruct client_id: nil, socket: nil, inbox: []
+  @opaque t :: %__MODULE__{
+            client_id: String.t(),
+            opts: ClientOptions.t()
+          }
+
+  defstruct client_id: nil, opts: nil, socket: nil, inbox: []
 
   # client
 
-  def start_link(%ClientOptions{} = opts) do
-    GenServer.start_link(__MODULE__, opts)
+  def start_link(%ClientOptions{client_id: client_id} = opts) do
+    GenServer.start_link(__MODULE__, opts, name: via_name(client_id))
   end
 
-  def receive_packet(server, packet) do
-    GenServer.call(server, {:receive_packet, packet})
+  def connect(name, client_id: client_id, clean_start: clean_start) when is_atom(client_id) do
+    connect(name, client_id: Atom.to_string(client_id), clean_start: clean_start)
   end
 
-  def get_messages(server) do
-    GenServer.call(server, :get_messages)
+  def connect(name, client_id: client_id, clean_start: clean_start) do
+    GenServer.call(via_name(name), {:connect, client_id: client_id, clean_start: clean_start})
   end
 
-  def subscribe(server, topic_filter, qos \\ 0) do
-    GenServer.call(server, {:subscribe, topic_filter, qos})
+  def receive_packet(name, packet) do
+    GenServer.call(via_name(name), {:receive_packet, packet})
   end
 
-  def publish(server, topic, message, qos \\ 0) do
-    GenServer.call(server, {:publish, message, topic, qos})
+  def get_messages(name) do
+    GenServer.call(via_name(name), :get_messages)
   end
 
-  def stop(server) do
-    GenServer.stop(server)
+  def subscribe(name, topic_filter: topic_filter, qos: qos) do
+    GenServer.call(via_name(name), {:subscribe, topic_filter: topic_filter, qos: qos})
+  end
+
+  def publish(name, topic, message, qos \\ 0) do
+    GenServer.call(via_name(name), {:publish, message, topic, qos})
+  end
+
+  def stop(name) do
+    GenServer.stop(via_name(name))
+  end
+
+  defp via_name(client_id) do
+    Client.Bucket.via_name(__MODULE__, client_id)
   end
 
   # server
 
   @impl true
-  def init(%ClientOptions{} = opts) do
-    socket = connect(opts)
-
-    server = self()
-    Task.start_link(fn -> read_loop(server, socket) end)
-
-    {:ok, %Client{client_id: opts.client_id, socket: socket}}
+  def init(%ClientOptions{client_id: client_id} = opts) do
+    {:ok, %Client{client_id: client_id, opts: opts}}
   end
 
   defp setup_subscriptions(socket, subscriptions) do
@@ -55,25 +67,19 @@ defmodule Client do
   end
 
   defp wait_for_suback(socket, packet_id) do
+    server = self()
+
     {:ok, raw_packet} = :gen_tcp.recv(socket, 0)
 
     case Packet.decode(raw_packet) do
-      {:suback, raw_packet} ->
-        packet = Packet.decode(raw_packet)
-        :ok = receive_packet(server, packet)
-        read_loop(server, socket)
+      {:suback, packet} ->
+        Logger.info("received suback")
+        :ok
 
       {:error, :closed} ->
         Logger.info("client tcp socket closed")
+        :ok
     end
-  end
-
-  defp connect(%ClientOptions{} = opts) do
-    {:ok, socket} = :gen_tcp.connect(opts.host, opts.port, [:binary, active: false])
-
-    :ok = :gen_tcp.send(socket, Packet.Encode.connect(opts.client_id, false))
-
-    socket
   end
 
   defp read_loop(server, socket) do
@@ -91,13 +97,40 @@ defmodule Client do
   end
 
   @impl true
+  def handle_call(
+        {:connect, client_id: client_id, clean_start: clean_start},
+        _from,
+        %Client{opts: opts} = state
+      ) do
+    with {:ok, socket} = :gen_tcp.connect(opts.host, opts.port, [:binary, active: false]),
+         :ok = :gen_tcp.send(socket, Packet.Encode.connect(client_id, clean_start)),
+         {:ok, raw_packet} <- :gen_tcp.recv(socket, 0, 5000) do
+      case Packet.decode(raw_packet) do
+        {:connack, %Packet.Connack{session_present?: session_present?, status: :accepted}} =
+            connack ->
+          {connack, socket}
+
+        {:connack,
+         %Packet.Connack{session_present?: session_present?, status: {:refused, _reason}}} =
+            connack ->
+          connack
+      end
+
+      server = self()
+      Task.start_link(fn -> read_loop(server, socket) end)
+
+      {:reply, :ok, put_in(state.socket, socket)}
+    end
+  end
+
+  @impl true
   def handle_call({:receive_packet, packet}, _from, state) do
     case packet do
-      {:publish_qos0, _} ->
-        {:reply, :ok, put_in(state.inbox, state.inbox ++ [packet])}
+      {:publish_qos0, publish} ->
+        {:reply, :ok, put_in(state.inbox, state.inbox ++ [publish])}
 
-      {:publish_qos1, _} ->
-        {:reply, :ok, put_in(state.inbox, state.inbox ++ [packet])}
+      {:publish_qos1, publish} ->
+        {:reply, :ok, put_in(state.inbox, state.inbox ++ [publish])}
 
       _ ->
         {:reply, :ok, state}
@@ -110,7 +143,7 @@ defmodule Client do
   end
 
   @impl true
-  def handle_call({:subscribe, topic_filter, qos}, _from, state) do
+  def handle_call({:subscribe, topic_filter: topic_filter, qos: qos}, _from, state) do
     encoded_subscribe =
       Packet.encode(%Packet.Subscribe{packet_id: 123, topics: [{topic_filter, qos}]})
 
