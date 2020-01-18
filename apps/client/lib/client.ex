@@ -1,73 +1,119 @@
 defmodule Client do
-  def subscribe_1msg(client_id, topic_filter, qos \\ 0) do
-    opts = [:binary, active: false]
-    {:ok, socket} = :gen_tcp.connect('localhost', 1883, opts)
+  use GenServer
+  require Logger
 
-    :ok = connect(socket, client_id, false)
-    :ok = subscribe(socket, topic_filter, qos)
+  defstruct client_id: nil, socket: nil, inbox: []
 
-    {:ok, packet} = :gen_tcp.recv(socket, 0, 2000)
-    {:publish_qos0, %Packet.Publish{message: message}} = Packet.decode(packet)
-    message
+  # client
+
+  def start_link(%ClientOptions{} = opts) do
+    GenServer.start_link(__MODULE__, opts)
   end
 
-  def publish(client_id, message, topic, qos) when qos == 0 do
-    opts = [:binary, active: false]
-    {:ok, socket} = :gen_tcp.connect('localhost', 1883, opts)
-    :ok = connect(socket, client_id, false)
-
-    :ok =
-      :gen_tcp.send(
-        socket,
-        Packet.encode(%Packet.Publish{
-          topic: topic,
-          message: message,
-          qos: qos,
-          retain: false
-        })
-      )
-
-    :ok
+  def receive_packet(server, packet) do
+    GenServer.call(server, {:receive_packet, packet})
   end
 
-  def publish(client_id, message, topic, qos) do
-    opts = [:binary, active: false]
-    {:ok, socket} = :gen_tcp.connect('localhost', 1883, opts)
-    :ok = connect(socket, client_id, false)
-
-    :ok =
-      :gen_tcp.send(
-        socket,
-        Packet.encode(%Packet.Publish{
-          packet_id: 1,
-          topic: topic,
-          message: message,
-          qos: qos,
-          retain: false
-        })
-      )
-
-    {:ok, puback} = :gen_tcp.recv(socket, 0, 1000)
-    {:puback, %Packet.Puback{packet_id: 1, status: {:accepted, :ok}}} = Packet.decode(puback)
-
-    :ok
+  def get_messages(server) do
+    GenServer.call(server, :get_messages)
   end
 
-  def connect(socket, client_id, clean_start) do
+  def subscribe(server, topic_filter, qos \\ 0) do
+    GenServer.call(server, {:subscribe, topic_filter, qos})
+  end
+
+  def publish(server, message, topic, qos \\ 0) do
+    GenServer.call(server, {:publish, message, topic, qos})
+  end
+
+  # server
+
+  @impl true
+  def init(%ClientOptions{} = opts) do
+    socket = connect(opts.client_id, opts.clean_start)
+    server = self()
+
+    Task.start_link(fn -> read_loop(server, socket) end)
+
+    {:ok, %Client{client_id: opts.client_id, socket: socket}}
+  end
+
+  defp connect(client_id, clean_start) do
+    {:ok, socket} = :gen_tcp.connect('localhost', 1883, [:binary, active: false])
+
     :ok = :gen_tcp.send(socket, Packet.Encode.connect(client_id, clean_start))
     {:ok, <<32, 3, 0, 0, 0>>} = :gen_tcp.recv(socket, 0, 1000)
 
-    :ok
+    socket
   end
 
-  defp subscribe(socket, topic_filter, qos) do
+  defp read_loop(server, socket) do
+    result = :gen_tcp.recv(socket, 0)
+
+    case result do
+      {:ok, raw_packet} ->
+        packet = Packet.decode(raw_packet)
+        :ok = receive_packet(server, packet)
+        read_loop(server, socket)
+
+      {:error, :closed} ->
+        Logger.info("client tcp socket closed")
+    end
+  end
+
+  @impl true
+  def handle_call({:receive_packet, packet}, _from, state) do
+    case packet do
+      {:publish_qos1, _} ->
+        Logger.error("getting a pub packet")
+        {:reply, :ok, put_in(state.inbox, state.inbox ++ [packet])}
+
+      p ->
+        Logger.error("getting a different packet")
+        {:reply, :ok, state}
+    end
+  end
+
+  @impl true
+  def handle_call(:get_messages, _from, state) do
+    {:reply, state.inbox, state}
+  end
+
+  @impl true
+  def handle_call({:subscribe, topic_filter, qos}, _from, state) do
     encoded_subscribe =
       Packet.encode(%Packet.Subscribe{packet_id: 123, topics: [{topic_filter, qos}]})
 
-    :ok = :gen_tcp.send(socket, encoded_subscribe)
-    {:ok, suback} = :gen_tcp.recv(socket, 0, 1000)
-    {:suback, %Packet.Suback{packet_id: 123, acks: [{:ok, 0}]}} = Packet.decode(suback)
+    :ok = :gen_tcp.send(state.socket, encoded_subscribe)
+    {:reply, :ok, state}
+  end
 
-    :ok
+  @impl true
+  def handle_call({:publish, message, topic, qos}, _from, state) when qos == 0 do
+    encoded_publish =
+      Packet.encode(%Packet.Publish{
+        topic: topic,
+        message: message,
+        qos: qos,
+        retain: false
+      })
+
+    :ok = :gen_tcp.send(state.socket, encoded_publish)
+    {:reply, :ok, state}
+  end
+
+  @impl true
+  def handle_call({:publish, message, topic, qos}, _from, state) do
+    encoded_publish =
+      Packet.encode(%Packet.Publish{
+        packet_id: 1,
+        topic: topic,
+        message: message,
+        qos: qos,
+        retain: false
+      })
+
+    :ok = :gen_tcp.send(state.socket, encoded_publish)
+    {:reply, :ok, state}
   end
 end
