@@ -47,7 +47,7 @@ defmodule Packet.Subscribe do
     def encode(
           %Packet.Subscribe{
             packet_id: packet_id,
-            topics: [{<<_topic_filter::binary>>, qos} | _]
+            topics: [{<<_topic_filter::binary>>, _qos} | _]
           } = subscribe
         )
         when packet_id in 0x0001..0xFFFF do
@@ -69,8 +69,5 @@ defmodule Packet.Subscribe do
         <<0>> <>
         encoded_topics
     end
-
-    defp flag(f) when f in [0, nil, false], do: 0
-    defp flag(_), do: 1
   end
 end

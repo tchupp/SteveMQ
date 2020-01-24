@@ -2,8 +2,6 @@ defmodule Packet.Puback do
   use Bitwise
   require Logger
 
-  alias Packet.Decode
-
   @type status :: {:accepted, accept_reasons()} | {:refused, refusal_reasons()}
   @type accept_reasons ::
           :ok
@@ -38,7 +36,7 @@ defmodule Packet.Puback do
         }
       }
 
-  def decode(<<4::4, 0::4>>, <<packet_id::16, reason_code::8, property_length::8, _rest::binary>>)
+  def decode(<<4::4, 0::4>>, <<packet_id::16, reason_code::8, _property_length::8, _rest::binary>>)
       when packet_id in 0x0001..0xFFFF and
              (reason_code == 0x00 or
                 reason_code == 0x10 or
@@ -116,8 +114,5 @@ defmodule Packet.Puback do
         :payload_format_invalid -> 0x99
       end
     end
-
-    defp flag(f) when f in [0, nil, false], do: 0
-    defp flag(_), do: 1
   end
 end

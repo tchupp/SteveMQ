@@ -2,8 +2,6 @@ defmodule Packet.Connack do
   use Bitwise
   require Logger
 
-  alias Packet.Decode
-
   @type status :: :accepted | {:refused, refusal_reasons()}
   @type refusal_reasons ::
           :unacceptable_protocol_version
