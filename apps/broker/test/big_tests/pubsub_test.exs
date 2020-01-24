@@ -34,7 +34,7 @@ defmodule BigTests.PubSubTest do
     |> Robot.stop()
   end
 
-  test "client with clean start does not receive publishes from old session" do
+  test "client with clean start as true does NOT receive publishes from old session" do
     Robot.start(:subscriber)
     |> Robot.subscribe(topic: "test/topic", qos: 1)
     |> Robot.stop()
@@ -43,12 +43,12 @@ defmodule BigTests.PubSubTest do
     |> Robot.publish(topic: "test/topic", message: "hi there", qos: 1)
     |> Robot.stop()
 
-    Robot.start(:subscriber, clean_start: false)
+    Robot.start(:subscriber, clean_start: true)
     |> Robot.assert_received_count(0)
     |> Robot.stop()
   end
 
-  test "client with clean start as false receives publishes while disconnected" do
+  test "client with clean start as false does receive publishes while disconnected" do
     Robot.start(:subscriber)
     |> Robot.subscribe(topic: "test/topic", qos: 1)
     |> Robot.stop()
