@@ -15,7 +15,7 @@ defmodule Mqtt.Subscription do
         :mnesia.index_read(Subscription, topic, :topic_filter)
       end)
 
-    Enum.map(results, fn {_, client_id, topic, pid} ->
+    Enum.map(results, fn {_, client_id, _topic, pid} ->
       case pid do
         :none -> {:offline, client_id}
         _ -> {:online, client_id, pid}

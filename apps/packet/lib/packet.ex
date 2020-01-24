@@ -18,7 +18,7 @@ defmodule Packet do
   alias Packet.Pingresp
   alias Packet.Disconnect
 
-  @type client_id() :: String.t()
+  @type client_id() :: atom() | String.t()
 
   @type packet_identifier() :: 0x0001..0xFFFF
 
