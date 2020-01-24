@@ -31,6 +31,11 @@ defmodule Robot do
     %Robot{name: name}
   end
 
+  def stop(%Robot{name: name} = _robot_context) do
+    :ok = Client.stop(name)
+    :ok
+  end
+
   def subscribe(%Robot{name: name} = robot_context, topic: topic_filter, qos: qos) do
     :ok = Client.subscribe(name, topic_filter: topic_filter, qos: qos)
     robot_context
@@ -42,19 +47,12 @@ defmodule Robot do
   end
 
   def assert_received_count(%Robot{name: name} = robot_context, expected_received_count) do
+    # TODO: can we do this without sleeping?
+    Process.sleep(2000)
+
     received_publishes = Client.get_messages(name)
     assert(length(received_publishes) == expected_received_count)
     robot_context
-  end
-
-  defp via_name(client_id) do
-    Client.Bucket.via_name(__MODULE__, client_id)
-  end
-
-  def stop(%Robot{name: name} = _robot_context) do
-    :ok = Client.stop(name)
-    :ok = Client.Bucket.delete_meta(name)
-    :ok
   end
 
   def assert_received(
@@ -63,6 +61,7 @@ defmodule Robot do
         message: expected_message,
         qos: expected_qos
       ) do
+    # TODO: can we do this without sleeping?
     Process.sleep(2000)
 
     received_publishes = Client.get_messages(name)
@@ -87,5 +86,9 @@ defmodule Robot do
     topic == expected_topic &&
       message == expected_message &&
       qos == expected_qos
+  end
+
+  defp via_name(client_id) do
+    Client.Bucket.via_name(__MODULE__, client_id)
   end
 end
