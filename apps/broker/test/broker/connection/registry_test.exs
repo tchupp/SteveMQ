@@ -25,8 +25,8 @@ defmodule Broker.Connection.RegistryTest do
     end)
     |> Task.await()
 
-    assert Broker.Connection.Registry.register(conn_registry, "clientIdThatReconnects", self()) ==
-             :ok
+    assert :ok ==
+             Broker.Connection.Registry.register(conn_registry, "clientIdThatReconnects", self())
 
     assert Broker.Connection.Registry.get_pid(conn_registry, "clientIdThatReconnects") == self()
   end

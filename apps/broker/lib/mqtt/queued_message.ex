@@ -34,7 +34,7 @@ defmodule Mqtt.QueuedMessage do
       [{_, _id, payload, _ref_count}] ->
         payload
 
-      [head | tail] ->
+      [_head | _tail] ->
         Logger.warn("Found multiple payloads. pub_id=#{pub_id}")
         nil
     end

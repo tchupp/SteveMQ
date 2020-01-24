@@ -16,7 +16,7 @@ defmodule Packet.Connect do
 
   @opaque decode_result :: {:connect, t} | {:connect_error, String.t()}
 
-  @enforce_keys [:client_id, :protocol_level, :clean_session, :keep_alive]
+  @enforce_keys [:client_id, :clean_session]
   defstruct client_id: nil,
             username: nil,
             password: nil,
