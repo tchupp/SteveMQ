@@ -130,6 +130,7 @@ defmodule Client do
         {:reply, :ok, put_in(state.inbox, state.inbox ++ [publish])}
 
       {:publish_qos1, publish} ->
+        #      TODO: do we need to puback here?
         {:reply, :ok, put_in(state.inbox, state.inbox ++ [publish])}
 
       _ ->
