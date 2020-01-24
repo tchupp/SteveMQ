@@ -28,7 +28,7 @@ defmodule Client do
     {:ok, <<32, 3, 0, 0, 0>>} = :gen_tcp.recv(socket, 0, 1000)
   end
 
-  defp subscribe(socket, topic_filter, qos) do
+  defp subscribe(socket, topic_filter, _qos) do
     encoded_subscribe =
       Packet.encode(%Packet.Subscribe{packet_id: 123, topics: [{topic_filter, 0}]})
 

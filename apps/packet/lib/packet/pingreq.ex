@@ -2,8 +2,6 @@ defmodule Packet.Pingreq do
   use Bitwise
   require Logger
 
-  alias Packet.Decode
-
   @opaque t :: %__MODULE__{}
 
   @opaque decode_result :: {:pingreq, t}
