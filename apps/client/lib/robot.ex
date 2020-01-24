@@ -72,13 +72,50 @@ defmodule Robot do
         &matches_publish?(&1, topic: expected_topic, message: expected_message, qos: expected_qos)
       )
 
-    assert found_publish? == true
+    assert found_publish?,
+           "Did not find a publish matching\
+             topic: #{expected_topic}\
+             message: #{expected_message}\
+             qos: #{expected_qos}"
+
+    robot_context
+  end
+
+  def assert_received(
+        %Robot{name: name} = robot_context,
+        index: index,
+        topic: expected_topic,
+        message: expected_message,
+        qos: expected_qos
+      ) do
+    # TODO: can we do this without sleeping?
+    Process.sleep(2000)
+
+    received_publishes = Client.get_messages(name)
+
+    assert length(received_publishes) >= index + 1
+
+    publish = Enum.at(received_publishes, index)
+
+    found_publish? =
+      matches_publish?(publish,
+        topic: expected_topic,
+        message: expected_message,
+        qos: expected_qos
+      )
+
+    assert found_publish?,
+           "Did not find a publish matching\
+              topic: #{expected_topic}\
+              message: #{expected_message}\
+              qos: #{expected_qos}\
+              at index: #{index}"
 
     robot_context
   end
 
   defp matches_publish?(
-         %Packet.Publish{topic: topic, message: message, qos: qos},
+         %Packet.Publish{topic: topic, message: message, qos: qos} = publish,
          topic: expected_topic,
          message: expected_message,
          qos: expected_qos
