@@ -33,7 +33,4 @@ defmodule Broker.MixProject do
       # {:sibling_app_in_umbrella, in_umbrella: true}
     ]
   end
-
-  def compiler_paths(:test), do: ["test/support"] ++ compiler_paths(:prod)
-  def compiler_paths(_), do: ["lib"]
 end
