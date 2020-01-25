@@ -1,2 +1,1 @@
-Logger.remove_backend(:console)
-ExUnit.start()
+ExUnit.start(capture_log: true)
