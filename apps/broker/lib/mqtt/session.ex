@@ -28,13 +28,14 @@ defmodule Mqtt.Session do
   end
 
   def queue_message(client_id, pub_id: pub_id, packet_id: packet_id, topic: topic, qos: qos) do
-    :mnesia.transaction(fn ->
-      [{_, _client_id, inbox}] = :mnesia.wread({Session, client_id})
+    {:atomic, _results} =
+      :mnesia.transaction(fn ->
+        [{_, _client_id, inbox}] = :mnesia.wread({Session, client_id})
 
-      :mnesia.write(
-        {Session, client_id, inbox ++ [{pub_id, packet_id: packet_id, topic: topic, qos: qos}]}
-      )
-    end)
+        :mnesia.write(
+          {Session, client_id, inbox ++ [{pub_id, packet_id: packet_id, topic: topic, qos: qos}]}
+        )
+      end)
 
     :ok
   end

@@ -4,9 +4,7 @@ defmodule BrokerTest do
   setup do
     Application.stop(:broker)
     :ok = Application.start(:broker)
-  end
 
-  setup do
     opts = [:binary, active: false]
     {:ok, socket} = :gen_tcp.connect('localhost', 1883, opts)
     %{socket: socket}
