@@ -3,7 +3,8 @@ defmodule Mqtt.SessionTest do
   alias Mqtt.Session
 
   setup do
-    :mnesia.clear_table(Session)
+    # TODO: why does this always return `{:aborted, {:no_exists, Session}}`?
+    {:aborted, {:no_exists, Session}} = :mnesia.clear_table(Session)
     :ok
   end
 
@@ -27,16 +28,22 @@ defmodule Mqtt.SessionTest do
     existing_session = Session.continue_session("bob")
 
     assert existing_session ==
-             {%Session{
-                client_id: "bob",
-                inbox: [{2, packet_id: 22, topic: "carl/topic", qos: 1}]
-              }, session_present?: true}
+             {
+               %Session{
+                 client_id: "bob",
+                 inbox: [{2, packet_id: 22, topic: "carl/topic", qos: 1}]
+               },
+               session_present?: true
+             }
   end
 
   test "continue session starts new session if one doesn't exist" do
     new_session = Session.continue_session("nobody")
 
-    assert new_session == {%Session{client_id: "nobody", inbox: []}, session_present?: false}
+    assert new_session == {
+             %Session{client_id: "nobody", inbox: []},
+             session_present?: false
+           }
   end
 
   test "removes delivered messages from session" do
