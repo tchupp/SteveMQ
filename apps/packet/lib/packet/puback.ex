@@ -14,7 +14,8 @@ defmodule Packet.Puback do
           | :not_authorized
 
   @opaque t :: %__MODULE__{
-            packet_id: Packet.packet_identifier()
+            packet_id: Packet.packet_identifier(),
+            status: status()
           }
 
   @opaque decode_result ::
