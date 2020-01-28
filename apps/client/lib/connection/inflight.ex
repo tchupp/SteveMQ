@@ -83,7 +83,7 @@ defmodule Connection.Inflight do
         %Data{pending: pending, order: order} = data
       ) do
     next_actions =
-      for packet_id <- order do
+      for packet_id <- Enum.reverse(order) do
         tracked =
           Map.get(pending, packet_id, :none)
           |> Tracked.publishing_duplicate()
