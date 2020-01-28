@@ -2,7 +2,7 @@ defmodule Client.BucketTest do
   use ExUnit.Case
   doctest Client.Bucket
 
-  setup context do
+  setup do
     _ = start_supervised!({Registry, keys: :unique, name: Client.Bucket})
     :ok
   end
