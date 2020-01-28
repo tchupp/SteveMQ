@@ -108,7 +108,7 @@ defmodule Packet.Publish do
   end
 
   defimpl Packet.Encodable do
-    def encode(%Packet.Publish{packet_id: nil, qos: 0} = publish) do
+    def encode(%Packet.Publish{qos: 0} = publish) do
       <<3::4, 0::1, 0::2, flag(publish.retain)::1>> <>
         Encode.variable_length_prefixed(
           Encode.fixed_length_prefixed(publish.topic) <>
