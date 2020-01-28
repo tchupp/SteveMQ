@@ -36,7 +36,7 @@ defmodule Packet.Publish do
             | {:publish_qos2, publish_qos2}
             | {:publish_error, String.t()}
 
-  @enforce_keys [:topic, :message, :qos, :retain]
+  @enforce_keys [:topic, :message, :qos]
   defstruct topic: nil,
             message: nil,
             qos: nil,

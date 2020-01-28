@@ -9,6 +9,8 @@ defmodule Client do
 
   defstruct client_id: nil, opts: nil, socket: nil, inbox: []
 
+  alias __MODULE__, as: State
+
   # client
 
   def start_link(%ClientOptions{client_id: client_id} = opts) do
@@ -51,35 +53,7 @@ defmodule Client do
 
   @impl true
   def init(%ClientOptions{client_id: client_id} = opts) do
-    {:ok, %Client{client_id: client_id, opts: opts}}
-  end
-
-  defp setup_subscriptions(socket, subscriptions) do
-    topics =
-      for subscription <- subscriptions do
-        {subscription.topic_filter, subscription.qos}
-      end
-
-    encoded_subscribe = Packet.encode(%Packet.Subscribe{packet_id: 123, topics: topics})
-    :ok = :gen_tcp.send(socket, encoded_subscribe)
-
-    wait_for_suback(socket, 123)
-  end
-
-  defp wait_for_suback(socket, packet_id) do
-    server = self()
-
-    {:ok, raw_packet} = :gen_tcp.recv(socket, 0)
-
-    case Packet.decode(raw_packet) do
-      {:suback, packet} ->
-        Logger.info("received suback")
-        :ok
-
-      {:error, :closed} ->
-        Logger.info("client tcp socket closed")
-        :ok
-    end
+    {:ok, %State{client_id: client_id, opts: opts}}
   end
 
   defp read_loop(server, socket) do
@@ -124,13 +98,20 @@ defmodule Client do
   end
 
   @impl true
-  def handle_call({:receive_packet, packet}, _from, state) do
+  def handle_call(
+        {:receive_packet, packet},
+        _from,
+        %State{client_id: client_id, inbox: inbox} = state
+      ) do
     case packet do
       {:publish_qos0, publish} ->
         {:reply, :ok, put_in(state.inbox, state.inbox ++ [publish])}
 
-      {:publish_qos1, publish} ->
-        #      TODO: do we need to puback here?
+      {:publish_qos1, %Packet.Publish{packet_id: packet_id} = publish} ->
+        encoded_puback =
+          Packet.encode(%Packet.Puback{status: {:accepted, :ok}, packet_id: packet_id})
+
+        :ok = :gen_tcp.send(state.socket, encoded_puback)
         {:reply, :ok, put_in(state.inbox, state.inbox ++ [publish])}
 
       _ ->
