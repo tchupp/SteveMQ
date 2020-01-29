@@ -108,7 +108,7 @@ defmodule Connection.Inflight do
   def handle_event(
         :cast,
         {:incoming, %Packet.Publish{qos: 0}},
-        {:connected, _socket},
+        _state,
         %Data{} = _data
       ) do
     :keep_state_and_data
@@ -118,7 +118,7 @@ defmodule Connection.Inflight do
   def handle_event(
         :cast,
         {:incoming, %Packet.Publish{qos: 1, packet_id: packet_id} = publish},
-        {:connected, _socket},
+        _state,
         %Data{pending: pending, order: order} = data
       ) do
     tracked = Tracked.new_incoming_publish(publish)
@@ -141,7 +141,7 @@ defmodule Connection.Inflight do
         :cast,
         {:outgoing, caller, %Packet.Publish{packet_id: nil} = publish},
         _state,
-        %Data{pending: pending, order: order} = data
+        %Data{pending: pending} = data
       ) do
     {:ok, publish} = assign_identifier(publish, pending)
 
@@ -178,7 +178,7 @@ defmodule Connection.Inflight do
   def handle_event(
         :cast,
         {:receive, %Packet.Puback{packet_id: packet_id, status: {:accepted, :ok}} = puback},
-        {:connected, socket},
+        _state,
         %Data{pending: pending, order: order} = data
       ) do
     with {:ok, tracked} <- Map.fetch(pending, packet_id),
@@ -197,34 +197,31 @@ defmodule Connection.Inflight do
     end
   end
 
-  # send packet over socket
   def handle_event(
         :internal,
         {:execute, %Tracked{actions: [[{:send, packet}, _] | _]} = tracked},
-        {:connected, socket},
+        state,
         %Data{} = data
       ) do
-    :ok = :gen_tcp.send(socket, Packet.encode(packet))
-    {:keep_state, handle_next(tracked, data)}
+    case state do
+      {:connected, socket} ->
+        :ok = :gen_tcp.send(socket, Packet.encode(packet))
+        {:keep_state, handle_next(tracked, data)}
+
+      # do nothing if disconnected, publishes will be handled on reconnect
+      :disconnected ->
+        :keep_state_and_data
+    end
   end
 
   # send message to pid
   def handle_event(
         :internal,
         {:execute, %Tracked{actions: [[{:respond, {pid, ref}}, _] | _]}},
-        {:connected, socket},
+        _state,
         %Data{client_id: client_id} = _data
       ) do
     send(pid, {{Inflight, client_id}, ref, :ok})
-    :keep_state_and_data
-  end
-
-  def handle_event(
-        :internal,
-        {:execute, %Tracked{actions: [[{:send, _}, _] | _]}},
-        :disconnected,
-        %Data{} = _data
-      ) do
     :keep_state_and_data
   end
 
