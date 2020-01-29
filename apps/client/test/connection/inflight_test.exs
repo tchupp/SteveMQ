@@ -165,21 +165,22 @@ defmodule Connection.InflightTest do
       Inflight.disconnect(client_id)
 
       publish1 = %Packet.Publish{packet_id: 1, topic: "other/topic", qos: 1, message: "message1"}
-      {:ok, _ref} = Inflight.track_outgoing(client_id, publish1)
-
       publish2 = %Packet.Publish{packet_id: 2, topic: "other/topic", qos: 1, message: "message2"}
+
+      {:ok, _ref} = Inflight.track_outgoing(client_id, publish1)
       {:ok, _ref} = Inflight.track_outgoing(client_id, publish2)
 
       # reestablish the connection
       Inflight.connect(client_id, context.client)
 
+      # we expect the publishes to have the duplicate flag now
       publish1 = %Packet.Publish{publish1 | dup: true}
-      assert {:ok, packet} = :gen_tcp.recv(context.server, 0, 500)
-      assert {:publish_qos1, ^publish1} = Packet.decode(packet)
-
       publish2 = %Packet.Publish{publish2 | dup: true}
-      assert {:ok, packet} = :gen_tcp.recv(context.server, 0, 500)
-      assert {:publish_qos1, ^publish2} = Packet.decode(packet)
+
+      expected = Packet.encode(publish1) |> IO.iodata_to_binary()
+      assert {:ok, ^expected} = :gen_tcp.recv(context.server, byte_size(expected), 500)
+      expected = Packet.encode(publish2) |> IO.iodata_to_binary()
+      assert {:ok, ^expected} = :gen_tcp.recv(context.server, byte_size(expected), 500)
     end
   end
 end
