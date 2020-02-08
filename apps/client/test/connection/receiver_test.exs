@@ -38,20 +38,18 @@ defmodule Connection.ReceiverTest do
       message = :crypto.strong_rand_bytes(1448)
       publish = %Packet.Publish{packet_id: 1, qos: 1, topic: "another/one", message: message}
 
-      encoded_publish = Packet.encode(publish)
-      :ok = :gen_tcp.send(context.server, encoded_publish)
+      :ok = :gen_tcp.send(context.server, Packet.encode(publish))
 
-      assert_receive {:"$gen_call", caller, {:receive_packet, ^encoded_publish}}
+      assert_receive {:"$gen_call", caller, {:receive_packet, {:publish_qos1, ^publish}}}
     end
 
     test "receive a publish with a big ol payload", context do
       message = :crypto.strong_rand_bytes(120_000)
       publish = %Packet.Publish{packet_id: 1, qos: 1, topic: "another/one", message: message}
 
-      encoded_publish = Packet.encode(publish)
-      :ok = :gen_tcp.send(context.server, encoded_publish)
+      :ok = :gen_tcp.send(context.server, Packet.encode(publish))
 
-      assert_receive {:"$gen_call", caller, {:receive_packet, ^encoded_publish}}
+      assert_receive {:"$gen_call", caller, {:receive_packet, {:publish_qos1, ^publish}}}
     end
 
     test "very slow connection", context do
@@ -64,8 +62,8 @@ defmodule Connection.ReceiverTest do
 
       # send the second byte and make sure we get the right packet
       :ok = :gen_tcp.send(context.server, <<0>>)
-      assert_receive {:"$gen_call", caller, {:receive_packet, data}}, 10000
-      assert {:pingresp, %Packet.Pingresp{}} = Packet.decode(data)
+      assert_receive {:"$gen_call", caller, {:receive_packet, packet}}, 10000
+      assert {:pingresp, %Packet.Pingresp{}} == packet
     end
   end
 
@@ -79,6 +77,17 @@ defmodule Connection.ReceiverTest do
       # the header parser should return protocol violation
       :ok = :gen_tcp.send(context.server, <<1, 255, 255, 255, 255, 0>>)
       assert_receive {:EXIT, ^receiver_pid, {:protocol_violation, :invalid_header_length}}
+    end
+  end
+
+  describe "closed socket" do
+    setup [:setup_connection, :setup_receiver]
+
+    test "closing the sockets does not crash the pid", context do
+      :ok = :gen_tcp.close(context.client)
+      :ok = :gen_tcp.close(context.server)
+
+      assert Process.alive?(context.receiver_pid)
     end
   end
 end

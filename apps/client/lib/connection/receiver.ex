@@ -137,6 +137,7 @@ defmodule Connection.Receiver do
   end
 
   def handle_event(:internal, {:emit, packet}, _, %Data{client_id: client_id} = _data) do
+    packet = Packet.decode(packet)
     :ok = Client.receive_packet(client_id, packet)
     :keep_state_and_data
   end
