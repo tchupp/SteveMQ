@@ -44,14 +44,14 @@ defmodule Connection.InflightTest do
 
     test "incoming qos 0 publish, does not send anything", %{client_id: client_id} = context do
       publish = %Packet.Publish{packet_id: 142, topic: "test/topic", message: "message 0", qos: 0}
-      :ok = Inflight.track_incoming(client_id, publish)
+      :ok = Inflight.receive(client_id, publish)
 
       assert {:error, :timeout} == :gen_tcp.recv(context.server, 0, 500)
     end
 
     test "incoming qos 1 publish, sends puback to server", %{client_id: client_id} = context do
       publish = %Packet.Publish{packet_id: 589, topic: "test/topic", message: "message 1", qos: 1}
-      :ok = Inflight.track_incoming(client_id, publish)
+      :ok = Inflight.receive(client_id, publish)
 
       assert {:ok, puback} = :gen_tcp.recv(context.server, 0, 500)
 
