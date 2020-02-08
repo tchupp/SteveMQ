@@ -116,6 +116,9 @@ defmodule Broker.Command do
         case subscriber do
           {:online, _client_id, pid} ->
             Broker.Connection.schedule_cmd_external(pid, publish_to_client(publish))
+
+          {:offline, _client_id} ->
+            nil
         end
       end
 
