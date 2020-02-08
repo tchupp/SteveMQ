@@ -1,6 +1,8 @@
 defmodule Client do
   use GenServer
-  require Logger
+
+  alias Connection.Inflight
+  alias Connection.Receiver
 
   @opaque t :: %__MODULE__{
             client_id: String.t(),
@@ -14,15 +16,13 @@ defmodule Client do
   # client
 
   def start_link(%ClientOptions{client_id: client_id} = opts) do
+    {:ok, _pid} = Inflight.start_link(client_id: client_id)
+    {:ok, _pid} = Receiver.start_link(client_id: client_id)
     GenServer.start_link(__MODULE__, opts, name: via_name(client_id))
   end
 
-  def connect(name, client_id: client_id, clean_start: clean_start) when is_atom(client_id) do
-    connect(name, client_id: Atom.to_string(client_id), clean_start: clean_start)
-  end
-
-  def connect(name, client_id: client_id, clean_start: clean_start) do
-    GenServer.call(via_name(name), {:connect, client_id: client_id, clean_start: clean_start})
+  def connect(name, clean_start: clean_start) do
+    GenServer.call(via_name(name), {:connect, clean_start: clean_start})
   end
 
   def receive_packet(name, packet) do
@@ -37,12 +37,19 @@ defmodule Client do
     GenServer.call(via_name(name), {:subscribe, topic_filter: topic_filter, qos: qos})
   end
 
-  def publish(name, topic, message, qos \\ 0) do
+  def publish(name, topic, message, qos) when qos == 0 do
     GenServer.call(via_name(name), {:publish, message, topic, qos})
+  end
+
+  def publish(name, topic, message, qos, timeout \\ :infinity) do
+    {:ok, ref} = GenServer.call(via_name(name), {:publish, message, topic, qos})
+    Inflight.await(name, ref, timeout)
   end
 
   def stop(name) do
     GenServer.stop(via_name(name))
+    Receiver.stop(name)
+    Inflight.stop(name)
   end
 
   defp via_name(client_id) do
@@ -56,42 +63,25 @@ defmodule Client do
     {:ok, %State{client_id: client_id, opts: opts}}
   end
 
-  defp read_loop(server, socket) do
-    result = :gen_tcp.recv(socket, 0)
-
-    case result do
-      {:ok, raw_packet} ->
-        packet = Packet.decode(raw_packet)
-        :ok = receive_packet(server, packet)
-        read_loop(server, socket)
-
-      {:error, :closed} ->
-        Logger.info("client tcp socket closed")
-    end
-  end
-
   @impl true
   def handle_call(
-        {:connect, client_id: client_id, clean_start: clean_start},
+        {:connect, clean_start: clean_start},
         _from,
-        %Client{opts: opts} = state
+        %Client{client_id: client_id, opts: opts, socket: nil} = state
       ) do
     with {:ok, socket} = :gen_tcp.connect(opts.host, opts.port, [:binary, active: false]),
          :ok = :gen_tcp.send(socket, Packet.Encode.connect(client_id, clean_start)),
          {:ok, raw_packet} <- :gen_tcp.recv(socket, 0, 5000) do
       case Packet.decode(raw_packet) do
-        {:connack, %Packet.Connack{session_present?: session_present?, status: :accepted}} =
-            connack ->
+        {:connack, %Packet.Connack{status: :accepted}} = connack ->
           {connack, socket}
 
-        {:connack,
-         %Packet.Connack{session_present?: session_present?, status: {:refused, _reason}}} =
-            connack ->
+        {:connack, %Packet.Connack{status: {:refused, _reason}}} = connack ->
           connack
       end
 
-      server = self()
-      Task.start_link(fn -> read_loop(server, socket) end)
+      :ok = Receiver.handle_socket(client_id, socket)
+      :ok = Inflight.connect(client_id, socket)
 
       {:reply, :ok, put_in(state.socket, socket)}
     end
@@ -101,18 +91,16 @@ defmodule Client do
   def handle_call(
         {:receive_packet, packet},
         _from,
-        %State{client_id: client_id, inbox: inbox} = state
+        %State{client_id: client_id} = state
       ) do
     case packet do
-      {:publish_qos0, publish} ->
+      {_type, %Packet.Publish{} = publish} ->
+        Inflight.receive(client_id, publish)
         {:reply, :ok, put_in(state.inbox, state.inbox ++ [publish])}
 
-      {:publish_qos1, %Packet.Publish{packet_id: packet_id} = publish} ->
-        encoded_puback =
-          Packet.encode(%Packet.Puback{status: {:accepted, :ok}, packet_id: packet_id})
-
-        :ok = :gen_tcp.send(state.socket, encoded_puback)
-        {:reply, :ok, put_in(state.inbox, state.inbox ++ [publish])}
+      {:puback, %Packet.Puback{} = puback} ->
+        Inflight.receive(client_id, puback)
+        {:reply, :ok, state}
 
       _ ->
         {:reply, :ok, state}
@@ -126,6 +114,7 @@ defmodule Client do
 
   @impl true
   def handle_call({:subscribe, topic_filter: topic_filter, qos: qos}, _from, state) do
+    # TODO: Inflight.track_outgoing
     encoded_subscribe =
       Packet.encode(%Packet.Subscribe{packet_id: 123, topics: [{topic_filter, qos}]})
 
@@ -135,31 +124,13 @@ defmodule Client do
   end
 
   @impl true
-  def handle_call({:publish, message, topic, qos}, _from, state) when qos == 0 do
-    encoded_publish =
-      Packet.encode(%Packet.Publish{
-        topic: topic,
-        message: message,
-        qos: qos,
-        retain: false
-      })
-
-    :ok = :gen_tcp.send(state.socket, encoded_publish)
-    {:reply, :ok, state}
-  end
-
-  @impl true
-  def handle_call({:publish, message, topic, qos}, _from, state) do
-    encoded_publish =
-      Packet.encode(%Packet.Publish{
-        packet_id: 1,
-        topic: topic,
-        message: message,
-        qos: qos,
-        retain: false
-      })
-
-    :ok = :gen_tcp.send(state.socket, encoded_publish)
-    {:reply, :ok, state}
+  def handle_call(
+        {:publish, message, topic, qos},
+        {pid, ref} = _from,
+        %State{client_id: client_id} = state
+      ) do
+    publish = %Packet.Publish{topic: topic, message: message, qos: qos}
+    {:ok, ref} = Inflight.track_outgoing(client_id, publish, pid, ref)
+    {:reply, {:ok, ref}, state}
   end
 end
