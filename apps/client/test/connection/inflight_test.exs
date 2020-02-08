@@ -182,5 +182,16 @@ defmodule Connection.InflightTest do
       expected = Packet.encode(publish2) |> IO.iodata_to_binary()
       assert {:ok, ^expected} = :gen_tcp.recv(context.server, byte_size(expected), 500)
     end
+
+    test "outgoing publishes timeout, when the sockets are closed", context do
+      :ok = :gen_tcp.close(context.server)
+      :ok = :gen_tcp.close(context.client)
+
+      publish = %Packet.Publish{topic: "other/topic", qos: 0, message: "message 17"}
+      {:ok, ref} = Inflight.track_outgoing(context.client_id, publish)
+      {:error, :timeout} = Inflight.await(context.client_id, ref, 3000)
+
+      assert Process.alive?(context.inflight_pid)
+    end
   end
 end

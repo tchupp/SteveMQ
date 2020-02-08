@@ -50,12 +50,10 @@ defmodule Connection.Inflight do
     end
   end
 
-  def track_outgoing_sync(client_id, packet, timeout \\ :infinity) do
-    {:ok, ref} = track_outgoing(client_id, packet)
-
+  def await(client_id, ref, timeout \\ :infinity) do
     receive do
-      {{Inflight, ^client_id}, ^ref, result} ->
-        result
+      {{Inflight, ^client_id}, ^ref, :ok} ->
+        {:ok, ref}
     after
       timeout -> {:error, :timeout}
     end
@@ -205,8 +203,14 @@ defmodule Connection.Inflight do
       ) do
     case state do
       {:connected, socket} ->
-        :ok = :gen_tcp.send(socket, Packet.encode(packet))
-        {:keep_state, handle_next(tracked, data)}
+        case :gen_tcp.send(socket, Packet.encode(packet)) do
+          :ok ->
+            {:keep_state, handle_next(tracked, data)}
+
+          # do nothing if closed, publishes will be handled on reconnect
+          {:error, :closed} ->
+            :keep_state_and_data
+        end
 
       # do nothing if disconnected, publishes will be handled on reconnect
       :disconnected ->
