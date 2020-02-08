@@ -5,6 +5,8 @@ defmodule Connection.Inflight do
   alias Connection.Inflight
   alias Connection.Inflight.Tracked
 
+  require Logger
+
   @enforce_keys [:client_id]
   defstruct client_id: nil, pending: %{}, order: []
 
@@ -28,16 +30,22 @@ defmodule Connection.Inflight do
     :ok = GenStateMachine.cast(via_name(client_id), :disconnect)
   end
 
-  def receive(client_id, %Packet.Puback{} = packet) do
-    :ok = GenStateMachine.cast(via_name(client_id), {:receive, packet})
+  def receive(client_id, packet) do
+    case packet do
+      %Packet.Puback{} ->
+        GenStateMachine.cast(via_name(client_id), {:receive, packet})
+
+      %Packet.Publish{} ->
+        GenStateMachine.cast(via_name(client_id), {:receive, packet})
+
+      _ ->
+        Logger.warn("received unhandled packet. packet=#{packet}")
+        :ok
+    end
   end
 
-  def track_incoming(client_id, %Packet.Publish{} = publish) do
-    :ok = GenStateMachine.cast(via_name(client_id), {:incoming, publish})
-  end
-
-  def track_outgoing(client_id, packet) do
-    caller = {_, ref} = {self(), make_ref()}
+  def track_outgoing(client_id, packet, pid \\ self(), ref \\ make_ref()) do
+    caller = {pid, ref}
 
     case packet do
       %Packet.Publish{} ->
@@ -105,7 +113,7 @@ defmodule Connection.Inflight do
   # Received QoS 0 - do nothing
   def handle_event(
         :cast,
-        {:incoming, %Packet.Publish{qos: 0}},
+        {:receive, %Packet.Publish{qos: 0}},
         _state,
         %Data{} = _data
       ) do
@@ -115,7 +123,7 @@ defmodule Connection.Inflight do
   # Received QoS 1 Publish - record and schedule puback
   def handle_event(
         :cast,
-        {:incoming, %Packet.Publish{qos: 1, packet_id: packet_id} = publish},
+        {:receive, %Packet.Publish{qos: 1, packet_id: packet_id} = publish},
         _state,
         %Data{pending: pending, order: order} = data
       ) do
@@ -132,6 +140,29 @@ defmodule Connection.Inflight do
     ]
 
     {:keep_state, data, next_actions}
+  end
+
+  # received puback
+  def handle_event(
+        :cast,
+        {:receive, %Packet.Puback{packet_id: packet_id, status: {:accepted, :ok}} = puback},
+        _state,
+        %Data{pending: pending, order: order} = data
+      ) do
+    with {:ok, tracked} <- Map.fetch(pending, packet_id),
+         {:ok, tracked} <- Tracked.received_puback(tracked, puback) do
+      next_actions = [
+        {:next_event, :internal, {:execute, tracked}}
+      ]
+
+      data = %Data{
+        data
+        | pending: Map.put(pending, packet_id, tracked),
+          order: [packet_id | order -- [packet_id]]
+      }
+
+      {:keep_state, data, next_actions}
+    end
   end
 
   # Sending Publish - no packet_id
@@ -170,29 +201,6 @@ defmodule Connection.Inflight do
     ]
 
     {:keep_state, data, next_actions}
-  end
-
-  # received puback
-  def handle_event(
-        :cast,
-        {:receive, %Packet.Puback{packet_id: packet_id, status: {:accepted, :ok}} = puback},
-        _state,
-        %Data{pending: pending, order: order} = data
-      ) do
-    with {:ok, tracked} <- Map.fetch(pending, packet_id),
-         {:ok, tracked} <- Tracked.received_puback(tracked, puback) do
-      next_actions = [
-        {:next_event, :internal, {:execute, tracked}}
-      ]
-
-      data = %Data{
-        data
-        | pending: Map.put(pending, packet_id, tracked),
-          order: [packet_id | order -- [packet_id]]
-      }
-
-      {:keep_state, data, next_actions}
-    end
   end
 
   def handle_event(
