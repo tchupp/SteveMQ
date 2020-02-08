@@ -20,9 +20,9 @@ defmodule Robot do
   end
 
   def start(name, clean_start: clean_start) do
-    {:ok, pid} = Client.start_link(%ClientOptions{client_id: name, clean_start: clean_start})
+    {:ok, _pid} = Client.start_link(%ClientOptions{client_id: name, clean_start: clean_start})
 
-    :ok = Client.connect(name, client_id: name, clean_start: clean_start)
+    :ok = Client.connect(name, clean_start: clean_start)
 
     %Robot{name: name}
   end
@@ -42,7 +42,7 @@ defmodule Robot do
   end
 
   def publish(%Robot{name: name} = robot_context, topic: topic, message: message, qos: qos) do
-    :ok = Client.publish(name, topic, message, qos)
+    {:ok, _ref} = Client.publish(name, topic, message, qos)
     robot_context
   end
 
@@ -98,7 +98,8 @@ defmodule Robot do
     publish = Enum.at(received_publishes, index)
 
     found_publish? =
-      matches_publish?(publish,
+      matches_publish?(
+        publish,
         topic: expected_topic,
         message: expected_message,
         qos: expected_qos
@@ -106,10 +107,10 @@ defmodule Robot do
 
     assert found_publish?,
            "Did not find a publish matching\
-              topic: #{expected_topic}\
-              message: #{expected_message}\
-              qos: #{expected_qos}\
-              at index: #{index}"
+                           topic: #{expected_topic}\
+                           message: #{expected_message}\
+                           qos: #{expected_qos}\
+                           at index: #{index}"
 
     robot_context
   end

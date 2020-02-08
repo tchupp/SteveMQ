@@ -1,6 +1,10 @@
 defmodule Packet.Encode do
   require Logger
 
+  def connect(client_id, clean_start) when is_atom(client_id) do
+    connect(Atom.to_string(client_id), clean_start)
+  end
+
   def connect(client_id, clean_start) do
     client_id_length = byte_size(client_id)
     remaining_length = client_id_length + 13
