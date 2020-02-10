@@ -1,7 +1,7 @@
 defmodule Packet.Disconnect do
   use Bitwise
   require Logger
-  
+
   @opaque decode_result :: {:disconnect, String.t()}
 
   @spec decode(<<_::8>>, <<_::8>>) :: decode_result
