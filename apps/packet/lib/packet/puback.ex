@@ -36,7 +36,10 @@ defmodule Packet.Puback do
         }
       }
 
-  def decode(<<4::4, 0::4>>, <<packet_id::16, reason_code::8, _property_length::8, _rest::binary>>)
+  def decode(
+        <<4::4, 0::4>>,
+        <<packet_id::16, reason_code::8, _property_length::8, _rest::binary>>
+      )
       when packet_id in 0x0001..0xFFFF and
              (reason_code == 0x00 or
                 reason_code == 0x10 or
