@@ -194,4 +194,44 @@ defmodule Connection.InflightTest do
       assert Process.alive?(context.inflight_pid)
     end
   end
+
+  describe "outgoing subscribe" do
+    setup [:setup_connection, :setup_inflight]
+
+    test "outgoing subscribe, responds to caller with ref", %{client_id: client_id} = context do
+      subscribe = %Packet.Subscribe{packet_id: 1, topics: [{"other/topic", 1}]}
+      {:ok, ref} = Inflight.track_outgoing(client_id, subscribe)
+      assert {:ok, packet} = :gen_tcp.recv(context.server, 0, 500)
+      assert {:subscribe, ^subscribe} = Packet.decode(packet)
+
+      # the caller should not get a response, until puback
+      refute_receive {{Inflight, ^client_id}, ^ref, :ok}
+
+      # receive a puback from the server
+      Inflight.receive(client_id, %Packet.Suback{packet_id: 1})
+
+      # the calling process should get a response
+      assert_receive {{Inflight, ^client_id}, ^ref, :ok}
+    end
+
+    test "outgoing subscribe, will be assigned a packet_id",
+         %{client_id: client_id} = context do
+      subscribe = %Packet.Subscribe{packet_id: nil, topics: [{"topic1", 1}]}
+      {:ok, _ref} = Inflight.track_outgoing(client_id, subscribe)
+      assert {:ok, packet} = :gen_tcp.recv(context.server, 0, 500)
+      assert {:subscribe, received_subscribe1} = Packet.decode(packet)
+      # make sure a packet_id was assigned
+      assert received_subscribe1.packet_id != nil
+
+      subscribe = %Packet.Subscribe{packet_id: nil, topics: [{"topic2", 1}]}
+      {:ok, _ref} = Inflight.track_outgoing(client_id, subscribe)
+      assert {:ok, packet} = :gen_tcp.recv(context.server, 0, 500)
+      assert {:subscribe, received_subscribe2} = Packet.decode(packet)
+      # make sure a packet_id was assigned
+      assert received_subscribe2.packet_id != nil
+
+      # make sure the packet_ids were not the same
+      assert received_subscribe1.packet_id != received_subscribe2.packet_id
+    end
+  end
 end

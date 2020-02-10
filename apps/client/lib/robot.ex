@@ -37,7 +37,7 @@ defmodule Robot do
   end
 
   def subscribe(%Robot{name: name} = robot_context, topic: topic_filter, qos: qos) do
-    :ok = Client.subscribe(name, topic_filter: topic_filter, qos: qos)
+    {:ok, _ref} = Client.subscribe(name, topic_filter, qos)
     robot_context
   end
 
@@ -116,7 +116,7 @@ defmodule Robot do
   end
 
   defp matches_publish?(
-         %Packet.Publish{topic: topic, message: message, qos: qos} = publish,
+         %Packet.Publish{topic: topic, message: message, qos: qos} = _publish,
          topic: expected_topic,
          message: expected_message,
          qos: expected_qos

@@ -35,6 +35,9 @@ defmodule Connection.Inflight do
       %Packet.Puback{} ->
         GenStateMachine.cast(via_name(client_id), {:receive, packet})
 
+      %Packet.Suback{} ->
+        GenStateMachine.cast(via_name(client_id), {:receive, packet})
+
       %Packet.Publish{} ->
         GenStateMachine.cast(via_name(client_id), {:receive, packet})
 
@@ -142,15 +145,15 @@ defmodule Connection.Inflight do
     {:keep_state, data, next_actions}
   end
 
-  # received puback
+  # received
   def handle_event(
         :cast,
-        {:receive, %Packet.Puback{packet_id: packet_id, status: {:accepted, :ok}} = puback},
+        {:receive, %{packet_id: packet_id} = packet},
         _state,
         %Data{pending: pending, order: order} = data
       ) do
     with {:ok, tracked} <- Map.fetch(pending, packet_id),
-         {:ok, tracked} <- Tracked.received_puback(tracked, puback) do
+         {:ok, tracked} <- Tracked.receive(tracked, packet) do
       next_actions = [
         {:next_event, :internal, {:execute, tracked}}
       ]
@@ -168,27 +171,27 @@ defmodule Connection.Inflight do
   # Sending Publish - no packet_id
   def handle_event(
         :cast,
-        {:outgoing, caller, %Packet.Publish{packet_id: nil} = publish},
+        {:outgoing, caller, %{packet_id: nil} = packet},
         _state,
         %Data{pending: pending} = data
       ) do
-    {:ok, publish} = assign_identifier(publish, pending)
+    {:ok, packet} = assign_identifier(packet, pending)
 
     next_actions = [
-      {:next_event, :internal, {:outgoing, caller, publish}}
+      {:next_event, :internal, {:outgoing, caller, packet}}
     ]
 
     {:keep_state, data, next_actions}
   end
 
-  # Sending Publish
+  # outgoing packet
   def handle_event(
         _from,
-        {:outgoing, caller, %Packet.Publish{packet_id: packet_id} = publish},
+        {:outgoing, caller, %{packet_id: packet_id} = packet},
         _state,
         %Data{pending: pending, order: order} = data
       ) do
-    tracked = Tracked.new_outgoing_publish(caller, publish)
+    tracked = Tracked.new_outgoing(caller, packet)
 
     data = %Data{
       data
@@ -248,7 +251,7 @@ defmodule Connection.Inflight do
 
   defp handle_next(_track, %Data{} = data), do: data
 
-  defp assign_identifier(%Packet.Publish{packet_id: nil} = packet, pending) do
+  defp assign_identifier(%{packet_id: nil} = packet, pending) do
     case :crypto.strong_rand_bytes(2) do
       <<0, 0>> ->
         # an identifier cannot be zero
@@ -256,7 +259,7 @@ defmodule Connection.Inflight do
 
       <<packet_id::integer-size(16)>> ->
         unless Map.has_key?(pending, packet_id) do
-          {:ok, %Packet.Publish{packet | packet_id: packet_id}}
+          {:ok, %{packet | packet_id: packet_id}}
         else
           assign_identifier(packet, pending)
         end
