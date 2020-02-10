@@ -15,11 +15,6 @@ defmodule Connection.ReceiverTest do
     {:ok, Map.merge(context, %{client: client_socket, server: server_socket})}
   end
 
-  defp drop_connection(%{server: server} = context) do
-    :ok = :gen_tcp.close(server)
-    {:ok, Map.drop(context, [:client, :server])}
-  end
-
   def setup_receiver(context) do
     {:ok, pid} = Receiver.start_link(client_id: context.client_id, socket: context.client)
     :ok = Receiver.handle_socket(pid, context.client)

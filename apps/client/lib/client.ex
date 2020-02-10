@@ -33,8 +33,9 @@ defmodule Client do
     GenServer.call(via_name(name), :get_messages)
   end
 
-  def subscribe(name, topic_filter: topic_filter, qos: qos) do
-    GenServer.call(via_name(name), {:subscribe, topic_filter: topic_filter, qos: qos})
+  def subscribe(name, topic_filter, qos, timeout \\ :infinity) do
+    {:ok, ref} = GenServer.call(via_name(name), {:subscribe, topics: [{topic_filter, qos}]})
+    Inflight.await(name, ref, timeout)
   end
 
   def publish(name, topic, message, qos) when qos == 0 do
@@ -102,6 +103,10 @@ defmodule Client do
         Inflight.receive(client_id, puback)
         {:reply, :ok, state}
 
+      {:suback, %Packet.Suback{} = suback} ->
+        Inflight.receive(client_id, suback)
+        {:reply, :ok, state}
+
       _ ->
         {:reply, :ok, state}
     end
@@ -113,14 +118,14 @@ defmodule Client do
   end
 
   @impl true
-  def handle_call({:subscribe, topic_filter: topic_filter, qos: qos}, _from, state) do
-    # TODO: Inflight.track_outgoing
-    encoded_subscribe =
-      Packet.encode(%Packet.Subscribe{packet_id: 123, topics: [{topic_filter, qos}]})
-
-    :ok = :gen_tcp.send(state.socket, encoded_subscribe)
-
-    {:reply, :ok, state}
+  def handle_call(
+        {:subscribe, topics: topics},
+        {pid, ref} = _from,
+        %State{client_id: client_id} = state
+      ) do
+    subscribe = %Packet.Subscribe{topics: topics}
+    {:ok, ref} = Inflight.track_outgoing(client_id, subscribe, pid, ref)
+    {:reply, {:ok, ref}, state}
   end
 
   @impl true

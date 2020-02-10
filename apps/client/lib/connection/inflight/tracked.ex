@@ -23,7 +23,7 @@ defmodule Connection.Inflight.Tracked do
     }
   end
 
-  def new_outgoing_publish({pid, ref}, %Packet.Publish{qos: 0, packet_id: packet_id} = publish)
+  def new_outgoing({pid, ref}, %Packet.Publish{qos: 0, packet_id: packet_id} = publish)
       when is_pid(pid) and is_reference(ref) do
     %Tracked{
       direction: :outgoing,
@@ -38,7 +38,7 @@ defmodule Connection.Inflight.Tracked do
     }
   end
 
-  def new_outgoing_publish({pid, ref}, %Packet.Publish{qos: 1, packet_id: packet_id} = publish)
+  def new_outgoing({pid, ref}, %Packet.Publish{qos: 1, packet_id: packet_id} = publish)
       when is_pid(pid) and is_reference(ref) do
     %Tracked{
       direction: :outgoing,
@@ -48,6 +48,25 @@ defmodule Connection.Inflight.Tracked do
         [
           {:send, publish},
           {:received, %Packet.Puback{packet_id: packet_id, status: {:accepted, :ok}}}
+        ],
+        [
+          {:respond, {pid, ref}},
+          :cleanup
+        ]
+      ]
+    }
+  end
+
+  def new_outgoing({pid, ref}, %Packet.Subscribe{packet_id: packet_id} = subscribe)
+      when is_pid(pid) and is_reference(ref) do
+    %Tracked{
+      direction: :outgoing,
+      type: Packet.Publish,
+      packet_id: packet_id,
+      actions: [
+        [
+          {:send, subscribe},
+          {:received, %Packet.Suback{packet_id: packet_id}}
         ],
         [
           {:respond, {pid, ref}},
@@ -69,10 +88,14 @@ defmodule Connection.Inflight.Tracked do
     end
   end
 
-  def received_puback(
-        %Tracked{actions: [[{:send, _publish}, {:received, puback}] | remaining_actions]} =
-          tracked,
-        %Packet.Puback{packet_id: packet_id, status: {:accepted, :ok}} = puback
+  def receive(
+        %Tracked{
+          actions: [
+            [{:send, _outgoing_packet}, {:received, %{__struct__: t, packet_id: packet_id}}]
+            | remaining_actions
+          ]
+        } = tracked,
+        %{__struct__: t, packet_id: packet_id} = _received_packet
       ) do
     {:ok, %Tracked{tracked | actions: remaining_actions}}
   end
