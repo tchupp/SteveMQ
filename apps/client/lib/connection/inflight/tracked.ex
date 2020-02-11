@@ -9,7 +9,7 @@ defmodule Connection.Inflight.Tracked do
             packet_id: nil,
             actions: []
 
-  def new_incoming_publish(%Packet.Publish{qos: 1, packet_id: packet_id} = publish) do
+  def new_incoming_publish(%Packet.Publish{qos: 1, packet_id: packet_id} = _publish) do
     %Tracked{
       direction: :incoming,
       type: Packet.Publish,
