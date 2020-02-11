@@ -125,8 +125,4 @@ defmodule Robot do
       message == expected_message &&
       qos == expected_qos
   end
-
-  defp via_name(client_id) do
-    Client.Bucket.via_name(__MODULE__, client_id)
-  end
 end

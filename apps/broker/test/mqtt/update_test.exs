@@ -59,7 +59,7 @@ defmodule Mqtt.UpdateTest do
 
     pub_event = {:publish_qos1, pub_packet}
 
-    {state, commands} = Mqtt.Update.update(pub_event, @default_state)
+    {_state, commands} = Mqtt.Update.update(pub_event, @default_state)
 
     assert commands == [Broker.Command.schedule_publish(pub_packet)]
   end

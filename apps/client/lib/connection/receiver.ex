@@ -2,7 +2,6 @@ defmodule Connection.Receiver do
   @moduledoc false
 
   use GenStateMachine
-  alias Connection.Receiver
 
   defstruct client_id: nil, socket: nil, buffer: <<>>
   alias __MODULE__, as: Data
@@ -62,7 +61,7 @@ defmodule Connection.Receiver do
 
   # receiving data on the network connection
   @impl true
-  def handle_event(:info, {transport, socket, tcp_data}, _, %Data{} = data)
+  def handle_event(:info, {transport, _socket, tcp_data}, _, %Data{} = data)
       when transport in [:tcp] do
     next_actions = [
       {:next_event, :internal, :activate_socket},
