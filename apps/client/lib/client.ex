@@ -96,15 +96,15 @@ defmodule Client do
       ) do
     case packet do
       {_type, %Packet.Publish{} = publish} ->
-        Inflight.receive(client_id, publish)
+        :ok = Inflight.receive(client_id, publish)
         {:reply, :ok, put_in(state.inbox, state.inbox ++ [publish])}
 
       {:puback, %Packet.Puback{} = puback} ->
-        Inflight.receive(client_id, puback)
+        :ok = Inflight.receive(client_id, puback)
         {:reply, :ok, state}
 
       {:suback, %Packet.Suback{} = suback} ->
-        Inflight.receive(client_id, suback)
+        :ok = Inflight.receive(client_id, suback)
         {:reply, :ok, state}
 
       _ ->

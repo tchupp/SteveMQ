@@ -104,7 +104,7 @@ defmodule Connection.InflightTest do
       refute_receive {{Inflight, ^client_id}, ^ref, :ok}
 
       # receive a puback from the server
-      Inflight.receive(client_id, %Packet.Puback{packet_id: 1, status: {:accepted, :ok}})
+      :ok = Inflight.receive(client_id, %Packet.Puback{packet_id: 1, status: {:accepted, :ok}})
 
       # the calling process should get a response
       assert_receive {{Inflight, ^client_id}, ^ref, :ok}
@@ -148,7 +148,7 @@ defmodule Connection.InflightTest do
       assert {:publish_qos1, ^publish} = Packet.decode(packet)
 
       # receive a puback from the server
-      Inflight.receive(client_id, %Packet.Puback{packet_id: 1, status: {:accepted, :ok}})
+      :ok = Inflight.receive(client_id, %Packet.Puback{packet_id: 1, status: {:accepted, :ok}})
 
       # drop and reestablish the connection
       {:ok, context} = drop_connection(context)
@@ -208,7 +208,7 @@ defmodule Connection.InflightTest do
       refute_receive {{Inflight, ^client_id}, ^ref, :ok}
 
       # receive a puback from the server
-      Inflight.receive(client_id, %Packet.Suback{packet_id: 1})
+      :ok = Inflight.receive(client_id, %Packet.Suback{packet_id: 1})
 
       # the calling process should get a response
       assert_receive {{Inflight, ^client_id}, ^ref, :ok}
