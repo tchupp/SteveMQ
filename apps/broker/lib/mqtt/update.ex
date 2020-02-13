@@ -6,12 +6,12 @@ defmodule Mqtt.Update do
   """
   def update(event, state) do
     case event do
-      {:connect, %Packet.Connect{client_id: client_id, clean_session: clean_session}} ->
+      {:connect, %Packet.Connect{client_id: client_id, clean_start: clean_start}} ->
         {
           %{state | client_id: client_id},
           [
             Broker.Command.register_client_id(client_id, self()),
-            case clean_session do
+            case clean_start do
               true -> Broker.Command.start_new_session(client_id)
               false -> Broker.Command.continue_session(client_id)
             end

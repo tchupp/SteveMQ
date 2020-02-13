@@ -20,7 +20,7 @@ defmodule Mqtt.UpdateTest do
       {:connect,
        %Packet.Connect{
          client_id: "qwerty",
-         clean_session: true,
+         clean_start: true,
          protocol_level: 5,
          keep_alive: 60
        }}
@@ -36,7 +36,7 @@ defmodule Mqtt.UpdateTest do
       {:connect,
        %Packet.Connect{
          client_id: "qwerty",
-         clean_session: false,
+         clean_start: false,
          protocol_level: 5,
          keep_alive: 60
        }}

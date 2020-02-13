@@ -9,19 +9,19 @@ defmodule Packet.Connect do
             username: binary() | nil,
             password: binary() | nil,
             protocol_level: non_neg_integer(),
-            clean_session: boolean(),
+            clean_start: boolean(),
             keep_alive: non_neg_integer(),
             will: Package.Publish.t() | nil
           }
 
   @opaque decode_result :: {:connect, t} | {:connect_error, String.t()}
 
-  @enforce_keys [:client_id, :clean_session]
+  @enforce_keys [:client_id, :clean_start]
   defstruct client_id: nil,
             username: nil,
             password: nil,
             protocol_level: 0b00000101,
-            clean_session: true,
+            clean_start: true,
             keep_alive: 60,
             will: nil
 
@@ -29,7 +29,7 @@ defmodule Packet.Connect do
   def decode(
         <<1::4, 0::4>>,
         <<4::16, "MQTT", protocol_level, username::1, password::1, will_retain::1, will_qos::2,
-          will_present::1, clean_session::1, 0::1, keep_alive::16, rest::binary>>
+          will_present::1, clean_start::1, 0::1, keep_alive::16, rest::binary>>
       ) do
     {props_length, _props_length_size, rest} = Decode.variable_length_prefixed(rest)
     <<_properties::binary-size(props_length), rest::binary>> = rest
@@ -53,7 +53,7 @@ defmodule Packet.Connect do
         username: options[:username],
         password: options[:password],
         protocol_level: protocol_level,
-        clean_session: clean_session == 1,
+        clean_start: clean_start == 1,
         keep_alive: keep_alive,
         will:
           if will_present == 1 do
