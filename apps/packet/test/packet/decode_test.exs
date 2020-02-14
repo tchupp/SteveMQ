@@ -2,117 +2,186 @@ defmodule Packet.DecodeTest do
   use ExUnit.Case, async: true
   use ExUnitProperties
 
-  import Packet.Encode2
+  alias Packet.Encode2, as: Encode
 
   describe "CONNECT" do
-    test "parses CONNECT" do
+    property "decodes CONNECT - username/password present" do
       protocol_level = 5
-
+      will_present = false
+      will_qos = 0
       will_retain = false
-      will_qos = 1
-      will_present = true
-      clean_session = true
-      keep_alive = 60
 
-      client_id = "hello world"
+      check all clean_start <- StreamData.boolean(),
+                keep_alive <- StreamData.integer(0..65535),
+                client_id <- StreamData.string(:alphanumeric, min_length: 1),
+                username <- StreamData.string(:alphanumeric, min_length: 1),
+                password <- StreamData.string(:alphanumeric, min_length: 1) do
+        # protocol size
+        # protocol level size
+        # connect flags size
+        # keep alive size
+        # properties size
+        packet_length =
+          6 +
+            1 +
+            1 +
+            2 +
+            1 +
+            2 + byte_size(client_id) +
+            2 + byte_size(username) +
+            2 + byte_size(password)
 
-      will_topic = "if you will it"
-      will_message = "it is no dream"
+        # fixed header - packet type
+        # fixed header - remaining length
+        # variable header - protocol(fixed length prefix)
+        # variable header - protocol level
+        # variable header - connect flags
+        # variable header - connect flags - keep alive
+        # variable header - properties(variable length prefix)
+        # payload - client id - length and data
+        # payload - will topic - length and data
+        # payload - will payload - length and data
+        # payload - username - length and data
+        # payload - password - length and data
+        connect =
+          <<1::4, 0::4>> <>
+            Encode.variable_length_int(packet_length) <>
+            <<4::16, "MQTT">> <>
+            <<5>> <>
+            <<
+              flag(username)::1,
+              flag(password)::1,
+              flag(will_retain)::1,
+              will_qos::2,
+              flag(will_present)::1,
+              flag(clean_start)::1,
+              0::1
+            >> <>
+            <<keep_alive::16>> <>
+            <<0>> <>
+            Encode.fixed_length_prefixed(client_id) <>
+            Encode.fixed_length_prefixed(username) <>
+            Encode.fixed_length_prefixed(password)
 
-      username = "joe dirt"
-      password = "paul rudd"
-
-      # protocol size
-      # protocol level size
-      # connect flags size
-      # keep alive size
-      # properties size
-      packet_length =
-        6 +
-          1 +
-          1 +
-          2 +
-          1 +
-          2 + String.length(client_id) +
-          2 + String.length(will_topic) +
-          2 + String.length(will_message) +
-          2 + String.length(username) +
-          2 + String.length(password)
-
-      # fixed header - packet type
-      # fixed header - remaining length
-      # variable header - protocol
-      # variable header - protocol level
-      # variable header - connect flags
-      # variable header - connect flags - keep alive
-      # variable header - properties - length and data
-      # payload - client id - length and data
-      # payload - will topic - length and data
-      # payload - will payload - length and data
-      # payload - username - length and data
-      # payload - password - length and data
-      connect =
-        <<1::4, 0::4>> <>
-          <<packet_length>> <>
-          <<4::16, "MQTT">> <>
-          <<5>> <>
-          <<
-            flag(username)::1,
-            flag(password)::1,
-            flag(will_retain)::1,
-            will_qos::2,
-            flag(will_present)::1,
-            flag(clean_session)::1,
-            0::1
-          >> <>
-          <<keep_alive::16>> <>
-          <<0>> <>
-          <<String.length(client_id)::16, client_id::binary>> <>
-          <<String.length(will_topic)::16, will_topic::binary>> <>
-          <<String.length(will_message)::16, will_message::binary>> <>
-          <<String.length(username)::16, username::binary>> <>
-          <<String.length(password)::16, password::binary>>
-
-      assert Packet.decode(connect) == {
-               :connect,
-               %Packet.Connect{
-                 client_id: client_id,
-                 username: username,
-                 password: password,
-                 clean_session: clean_session,
-                 keep_alive: keep_alive,
-                 protocol_level: protocol_level,
-                 will: %Packet.Publish{
-                   qos: 1,
-                   topic: will_topic,
-                   message: will_message,
-                   retain: false
+        assert Packet.decode(connect) == {
+                 :connect,
+                 %Packet.Connect{
+                   client_id: client_id,
+                   username: username,
+                   password: password,
+                   clean_start: clean_start,
+                   keep_alive: keep_alive,
+                   protocol_level: protocol_level
                  }
                }
-             }
+      end
     end
 
-    test "returns :unknown if protocol is not 'MQTT'" do
-      # fixed header - packet type
-      # fixed header - remaining length
-      # variable header - protocol
-      # variable header - protocol level
-      # variable header - connect flags
-      # variable header - connect flags - keep alive
-      # variable header - properties - length and data
-      # payload - client id - length and data
-      connect =
-        <<1::4, 0::4>> <>
-          <<24>> <>
-          <<4::16, "ABCD">> <>
-          <<5>> <>
-          <<2::8>> <>
-          <<60::16>> <>
-          <<0, 0>> <>
-          <<11, "hello world">>
+    property "decodes CONNECT - will present" do
+      protocol_level = 5
+      will_present = true
+      username = false
+      password = false
 
-      {type, _error} = Packet.decode(connect)
-      assert type == :connect_error
+      check all clean_start <- StreamData.boolean(),
+                keep_alive <- StreamData.integer(0..65535),
+                client_id <- StreamData.string(:alphanumeric, min_length: 1),
+                will_retain <- StreamData.boolean(),
+                will_qos <- StreamData.member_of(0..2),
+                will_topic <- StreamData.string(:alphanumeric, min_length: 1),
+                will_message <- StreamData.string(:alphanumeric, min_length: 1) do
+        # protocol size
+        # protocol level size
+        # connect flags size
+        # keep alive size
+        # properties size
+        packet_length =
+          6 +
+            1 +
+            1 +
+            2 +
+            1 +
+            2 + byte_size(client_id) +
+            2 + byte_size(will_topic) +
+            2 + byte_size(will_message)
+
+        # fixed header - packet type
+        # fixed header - remaining length
+        # variable header - protocol(fixed length prefix)
+        # variable header - protocol level
+        # variable header - connect flags
+        # variable header - connect flags - keep alive
+        # variable header - properties(variable length prefix)
+        # payload - client id - length and data
+        # payload - will topic - length and data
+        # payload - will payload - length and data
+        # payload - username - length and data
+        # payload - password - length and data
+        connect =
+          <<1::4, 0::4>> <>
+            Encode.variable_length_int(packet_length) <>
+            <<4::16, "MQTT">> <>
+            <<5>> <>
+            <<
+              flag(username)::1,
+              flag(password)::1,
+              flag(will_retain)::1,
+              will_qos::2,
+              flag(will_present)::1,
+              flag(clean_start)::1,
+              0::1
+            >> <>
+            <<keep_alive::16>> <>
+            <<0>> <>
+            Encode.fixed_length_prefixed(client_id) <>
+            Encode.fixed_length_prefixed(will_topic) <>
+            Encode.fixed_length_prefixed(will_message)
+
+        assert Packet.decode(connect) == {
+                 :connect,
+                 %Packet.Connect{
+                   client_id: client_id,
+                   clean_start: clean_start,
+                   keep_alive: keep_alive,
+                   protocol_level: protocol_level,
+                   will: %Packet.Publish{
+                     qos: will_qos,
+                     topic: will_topic,
+                     message: will_message,
+                     retain: will_retain
+                   }
+                 }
+               }
+      end
+    end
+
+    property "returns :unknown if protocol is not 'MQTT'" do
+      check all protocol <- StreamData.string(:alphanumeric, min_length: 1, max_length: 65355) do
+        packet_length =
+          18 +
+            2 + byte_size(protocol)
+
+        # fixed header - packet type
+        # fixed header - remaining length
+        # variable header - protocol
+        # variable header - protocol level
+        # variable header - connect flags
+        # variable header - connect flags - keep alive
+        # variable header - properties - length and data
+        # payload - client id - length and data
+        connect =
+          <<1::4, 0::4>> <>
+            Encode.variable_length_int(packet_length) <>
+            Encode.fixed_length_prefixed(protocol) <>
+            <<5>> <>
+            <<2::8>> <>
+            <<60::16>> <>
+            <<0, 0>> <>
+            <<11, "hello world">>
+
+        {type, _error} = Packet.decode(connect)
+        assert type == :connect_error
+      end
     end
   end
 
@@ -221,7 +290,7 @@ defmodule Packet.DecodeTest do
         # variable header - topic - length and data
         publish =
           <<3::4, 0::1, qos_code::2, flag(retain)::1>> <>
-            variable_length_int(packet_length) <>
+            Encode.variable_length_int(packet_length) <>
             <<topic_length::16, topic::binary>> <>
             <<0>> <>
             <<message::binary>>
@@ -257,7 +326,7 @@ defmodule Packet.DecodeTest do
         # variable header - topic - length and data
         publish =
           <<3::4, 0::1, qos_code::2, flag(retain)::1>> <>
-            variable_length_int(packet_length) <>
+            Encode.variable_length_int(packet_length) <>
             <<topic_length::16, topic::binary>> <>
             <<0>> <>
             <<message::binary>>
@@ -301,7 +370,7 @@ defmodule Packet.DecodeTest do
         # variable header - topic - length and data
         publish =
           <<3::4, flag(dup)::1, qos_code::2, flag(retain)::1>> <>
-            variable_length_int(packet_length) <>
+            Encode.variable_length_int(packet_length) <>
             <<topic_length::16, topic::binary>> <>
             <<packet_id::16>> <>
             <<0>> <>
@@ -350,7 +419,7 @@ defmodule Packet.DecodeTest do
 
         puback =
           <<4::4, 0::4>> <>
-            variable_length_int(packet_length) <>
+            Encode.variable_length_int(packet_length) <>
             <<packet_id::16>>
 
         {:puback, %Packet.Puback{packet_id: actual_packet_id, status: actual_status}} =
@@ -382,7 +451,7 @@ defmodule Packet.DecodeTest do
 
         puback =
           <<4::4, 0::4>> <>
-            variable_length_int(packet_length) <>
+            Encode.variable_length_int(packet_length) <>
             <<1::16>> <>
             <<reason_code::8>> <>
             <<0::8>>
@@ -412,7 +481,7 @@ defmodule Packet.DecodeTest do
 
         puback =
           <<4::4, 0::4>> <>
-            variable_length_int(packet_length) <>
+            Encode.variable_length_int(packet_length) <>
             <<1::16>> <>
             <<reason_code::8>> <>
             <<0::8>>
@@ -451,7 +520,7 @@ defmodule Packet.DecodeTest do
 
         subscribe =
           <<8::4, 2::4>> <>
-            variable_length_int(packet_length) <>
+            Encode.variable_length_int(packet_length) <>
             <<packet_id::16>> <>
             <<0>> <>
             encoded_topics
@@ -482,7 +551,7 @@ defmodule Packet.DecodeTest do
 
         subscribe =
           <<8::4, 2::4>> <>
-            variable_length_int(packet_length) <>
+            Encode.variable_length_int(packet_length) <>
             <<packet_id::16>> <>
             <<0>> <>
             encoded_topics
@@ -600,7 +669,7 @@ defmodule Packet.DecodeTest do
 
         pingreq =
           <<12::4, 0::4>> <>
-            variable_length_int(packet_length) <>
+            Encode.variable_length_int(packet_length) <>
             <<variable_header::binary>> <>
             <<payload::binary>>
 
@@ -625,7 +694,7 @@ defmodule Packet.DecodeTest do
 
         pingresp =
           <<13::4, 0::4>> <>
-            variable_length_int(packet_length) <>
+            Encode.variable_length_int(packet_length) <>
             <<variable_header::binary>> <>
             <<payload::binary>>
 
