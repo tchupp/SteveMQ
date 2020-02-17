@@ -16,11 +16,6 @@ defmodule Packet.DecodeTest do
                 client_id <- StreamData.string(:alphanumeric, min_length: 1),
                 username <- StreamData.string(:alphanumeric, min_length: 1),
                 password <- StreamData.string(:alphanumeric, min_length: 1) do
-        # protocol size
-        # protocol level size
-        # connect flags size
-        # keep alive size
-        # properties size
         packet_length =
           6 +
             1 +
@@ -31,18 +26,6 @@ defmodule Packet.DecodeTest do
             2 + byte_size(username) +
             2 + byte_size(password)
 
-        # fixed header - packet type
-        # fixed header - remaining length
-        # variable header - protocol(fixed length prefix)
-        # variable header - protocol level
-        # variable header - connect flags
-        # variable header - connect flags - keep alive
-        # variable header - properties(variable length prefix)
-        # payload - client id - length and data
-        # payload - will topic - length and data
-        # payload - will payload - length and data
-        # payload - username - length and data
-        # payload - password - length and data
         connect =
           <<1::4, 0::4>> <>
             Encode.variable_length_int(packet_length) <>
@@ -58,7 +41,7 @@ defmodule Packet.DecodeTest do
               0::1
             >> <>
             <<keep_alive::16>> <>
-            <<0>> <>
+            Encode.variable_length_prefixed(<<>>) <>
             Encode.fixed_length_prefixed(client_id) <>
             Encode.fixed_length_prefixed(username) <>
             Encode.fixed_length_prefixed(password)
@@ -90,11 +73,6 @@ defmodule Packet.DecodeTest do
                 will_qos <- StreamData.member_of(0..2),
                 will_topic <- StreamData.string(:alphanumeric, min_length: 1),
                 will_message <- StreamData.string(:alphanumeric, min_length: 1) do
-        # protocol size
-        # protocol level size
-        # connect flags size
-        # keep alive size
-        # properties size
         packet_length =
           6 +
             1 +
@@ -105,18 +83,6 @@ defmodule Packet.DecodeTest do
             2 + byte_size(will_topic) +
             2 + byte_size(will_message)
 
-        # fixed header - packet type
-        # fixed header - remaining length
-        # variable header - protocol(fixed length prefix)
-        # variable header - protocol level
-        # variable header - connect flags
-        # variable header - connect flags - keep alive
-        # variable header - properties(variable length prefix)
-        # payload - client id - length and data
-        # payload - will topic - length and data
-        # payload - will payload - length and data
-        # payload - username - length and data
-        # payload - password - length and data
         connect =
           <<1::4, 0::4>> <>
             Encode.variable_length_int(packet_length) <>
@@ -132,7 +98,7 @@ defmodule Packet.DecodeTest do
               0::1
             >> <>
             <<keep_alive::16>> <>
-            <<0>> <>
+            Encode.variable_length_prefixed(<<>>) <>
             Encode.fixed_length_prefixed(client_id) <>
             Encode.fixed_length_prefixed(will_topic) <>
             Encode.fixed_length_prefixed(will_message)
@@ -155,20 +121,71 @@ defmodule Packet.DecodeTest do
       end
     end
 
+    property "decodes CONNECT - properties" do
+      protocol_level = 5
+      will_present = false
+      will_qos = 0
+      will_retain = false
+      username = false
+      password = false
+
+      check all clean_start <- StreamData.boolean(),
+                keep_alive <- StreamData.integer(0..65_535),
+                client_id <- StreamData.string(:alphanumeric, min_length: 1),
+                session_expiry <- StreamData.integer(0..2_147_483_647),
+                receive_maximum <- StreamData.integer(1..65_535) do
+        properties =
+          Encode.variable_length_prefixed(
+            <<17, session_expiry::32>> <>
+              <<33, receive_maximum::16>>
+          )
+
+        packet_length =
+          6 +
+            1 +
+            1 +
+            2 +
+            byte_size(properties) +
+            2 + byte_size(client_id)
+
+        connect =
+          <<1::4, 0::4>> <>
+            Encode.variable_length_int(packet_length) <>
+            <<4::16, "MQTT">> <>
+            <<5>> <>
+            <<
+              flag(username)::1,
+              flag(password)::1,
+              flag(will_retain)::1,
+              will_qos::2,
+              flag(will_present)::1,
+              flag(clean_start)::1,
+              0::1
+            >> <>
+            <<keep_alive::16>> <>
+            properties <>
+            Encode.fixed_length_prefixed(client_id)
+
+        assert Packet.decode(connect) == {
+                 :connect,
+                 %Packet.Connect{
+                   client_id: client_id,
+                   clean_start: clean_start,
+                   keep_alive: keep_alive,
+                   protocol_level: protocol_level,
+                   session_expiry: session_expiry,
+                   receive_maximum: receive_maximum
+                 }
+               }
+      end
+    end
+
     property "returns :unknown if protocol is not 'MQTT'" do
-      check all protocol <- StreamData.string(:alphanumeric, min_length: 1, max_length: 65355) do
+      check all protocol <- StreamData.string(:alphanumeric, min_length: 1, max_length: 65535) do
         packet_length =
           18 +
             2 + byte_size(protocol)
 
-        # fixed header - packet type
-        # fixed header - remaining length
-        # variable header - protocol
-        # variable header - protocol level
-        # variable header - connect flags
-        # variable header - connect flags - keep alive
-        # variable header - properties - length and data
-        # payload - client id - length and data
         connect =
           <<1::4, 0::4>> <>
             Encode.variable_length_int(packet_length) <>
