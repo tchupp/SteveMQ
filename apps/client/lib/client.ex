@@ -71,7 +71,11 @@ defmodule Client do
         %Client{client_id: client_id, opts: opts, socket: nil} = state
       ) do
     with {:ok, socket} = :gen_tcp.connect(opts.host, opts.port, [:binary, active: false]),
-         :ok = :gen_tcp.send(socket, Packet.Encode.connect(client_id, clean_start)),
+         :ok =
+           :gen_tcp.send(
+             socket,
+             Packet.encode(%Packet.Connect{client_id: client_id, clean_start: clean_start})
+           ),
          {:ok, raw_packet} <- :gen_tcp.recv(socket, 0, 5000) do
       case Packet.decode(raw_packet) do
         {:connack, %Packet.Connack{status: :accepted}} = connack ->
