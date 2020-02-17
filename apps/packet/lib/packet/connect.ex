@@ -3,6 +3,7 @@ defmodule Packet.Connect do
   require Logger
 
   alias Packet.Decode
+  alias Packet.Encode2, as: Encode
 
   @opaque t :: %__MODULE__{
             client_id: Package.client_id(),
@@ -85,17 +86,90 @@ defmodule Packet.Connect do
     {decode_properties(properties, default_properties), rest}
   end
 
-  defp decode_properties(<<17::8, bytes::binary>>, properties) do
+  @session_expiry_id 17
+  defp decode_properties(<<@session_expiry_id::8, bytes::binary>>, properties) do
     <<session_expiry::32, bytes::binary>> = bytes
     decode_properties(bytes, %{properties | session_expiry: session_expiry})
   end
 
-  defp decode_properties(<<33::8, bytes::binary>>, properties) do
+  @receive_maximum_id 33
+  defp decode_properties(<<@receive_maximum_id::8, bytes::binary>>, properties) do
     <<receive_maximum::16, bytes::binary>> = bytes
     decode_properties(bytes, %{properties | receive_maximum: receive_maximum})
   end
 
   defp decode_properties(_bytes, properties) do
     properties
+  end
+
+  defimpl Packet.Encodable do
+    defp connection_flags(%Packet.Connect{will: nil} = c),
+      do: <<
+        flag(c.username)::1,
+        flag(c.password)::1,
+        flag(false)::1,
+        0::2,
+        flag(false)::1,
+        flag(c.clean_start)::1,
+        0::1
+      >>
+
+    defp connection_flags(%Packet.Connect{will: %Packet.Publish{} = will} = c),
+      do: <<
+        flag(c.username)::1,
+        flag(c.password)::1,
+        flag(will.retain)::1,
+        will.qos::2,
+        flag(will)::1,
+        flag(c.clean_start)::1,
+        0::1
+      >>
+
+    defp properties(%Packet.Connect{} = c) do
+      Encode.variable_length_prefixed(
+        <<17, c.session_expiry::32>> <>
+          <<33, c.receive_maximum::16>>
+      )
+    end
+
+    defp payload(%Packet.Connect{} = c) do
+      [
+        client_id: c.client_id,
+        will_topic: c |> struct_get(:will) |> struct_get(:topic),
+        will_message: c |> struct_get(:will) |> struct_get(:message),
+        username: c.username,
+        password: c.password
+      ]
+      |> Enum.map(fn {_key, value} -> value end)
+      |> Enum.reject(&is_nil/1)
+      |> Enum.map(fn value -> encode_atom(value) end)
+      |> Enum.map(&Encode.fixed_length_prefixed/1)
+      |> Enum.reduce(<<>>, fn next, acc -> acc <> next end)
+    end
+
+    defp flag(f) when f in [0, nil, false], do: 0
+    defp flag(_), do: 1
+
+    defp struct_get(nil, _key), do: nil
+    defp struct_get(struct, key), do: Map.get(struct, key)
+
+    defp encode_atom(atom) when is_atom(atom), do: Atom.to_string(atom)
+    defp encode_atom(atom), do: atom
+
+    def encode(
+          %Packet.Connect{
+            protocol_level: protocol_level,
+            keep_alive: keep_alive
+          } = connect
+        ) do
+      <<1::4, 0::4>> <>
+        Encode.variable_length_prefixed(
+          <<4::16, "MQTT", protocol_level::8>> <>
+            connection_flags(connect) <>
+            <<keep_alive::16>> <>
+            properties(connect) <>
+            payload(connect)
+        )
+    end
   end
 end

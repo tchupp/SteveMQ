@@ -2,6 +2,51 @@ defmodule Packet.EncodeTest do
   use ExUnit.Case, async: true
   use ExUnitProperties
 
+  describe "CONNECT" do
+    property "encodes CONNECT" do
+      protocol_level = 5
+
+      check all clean_start <- StreamData.boolean(),
+                keep_alive <- StreamData.integer(0..65535),
+                client_id <- StreamData.string(:alphanumeric, min_length: 1),
+                username <- StreamData.string(:alphanumeric, min_length: 1),
+                password <- StreamData.string(:alphanumeric, min_length: 1),
+                will_present <- StreamData.boolean(),
+                will_retain <- StreamData.boolean(),
+                will_qos <- StreamData.member_of(0..2),
+                will_topic <- StreamData.string(:alphanumeric, min_length: 1),
+                will_message <- StreamData.string(:alphanumeric, min_length: 1),
+                session_expiry <- StreamData.integer(0..2_147_483_647),
+                receive_maximum <- StreamData.integer(1..65_535) do
+        connect = %Packet.Connect{
+          clean_start: clean_start,
+          client_id: client_id,
+          username: username,
+          password: password,
+          protocol_level: protocol_level,
+          keep_alive: keep_alive,
+          will:
+            if(!will_present,
+              do: nil,
+              else: %Packet.Publish{
+                retain: will_retain,
+                topic: will_topic,
+                qos: will_qos,
+                message: will_message
+              }
+            ),
+          session_expiry: session_expiry,
+          receive_maximum: receive_maximum
+        }
+
+        assert {:connect, connect} ==
+                 connect
+                 |> Packet.encode()
+                 |> Packet.decode()
+      end
+    end
+  end
+
   describe "CONNACK" do
     property "encodes CONNACK" do
       check all session_present? <- StreamData.boolean(),
@@ -213,32 +258,6 @@ defmodule Packet.EncodeTest do
                |> Packet.encode()
                |> Packet.decode()
     end
-  end
-
-  test "encodes CONNECT with client id and clean" do
-    # fixed header
-    # protocol
-    # protocol level
-    # connect flags
-    # keep alive
-    # property length
-    # payload: client id
-    assert Packet.Encode.connect("samuel-l-jackson", false) ==
-             <<16, 29>> <>
-               <<0, 4, "MQTT">> <>
-               <<5>> <>
-               <<0>> <>
-               <<0, 60>> <>
-               <<0>> <>
-               <<0, 16, "samuel-l-jackson">>
-  end
-
-  test "sets clean start flag when encoding CONNECT" do
-    clean_start_connect = Packet.Encode.connect("brian-boitano", true)
-    dirty_start_connect = Packet.Encode.connect("kristi-yamaguchi", false)
-
-    assert :binary.at(dirty_start_connect, 9) == 0
-    assert :binary.at(clean_start_connect, 9) == 2
   end
 
   test "encodes handle utf8 string > 255 chars" do
